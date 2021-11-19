@@ -19,8 +19,6 @@ for val in reversed(range(10,240,10)):
 def instance_color():
     for color in INSTANCE_COLORS:
         yield color
-    
-instance_color_gen = instance_color()
 
 # Default value setter for list of classes ('Background' class)
 def setDefaultClassName(scene):
@@ -43,6 +41,8 @@ class BAT_OT_render_annotation(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     def execute(self, context):
+
+        instance_color_gen = instance_color()
 
         scene = context.scene
 
