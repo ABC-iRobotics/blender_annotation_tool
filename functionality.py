@@ -9,11 +9,13 @@ DEFAULT_CLASS_NAME = common.DEFAULT_CLASS_NAME
 
 # Define list of colors for instance segmentation
 INSTANCE_COLORS = []
-for val in reversed(range(10,240,10)):
-    val = val/255
-    INSTANCE_COLORS.append((0,val,val,1))
-    INSTANCE_COLORS.append((val,0,val,1))
-    INSTANCE_COLORS.append((val,val,0,1))
+for r in reversed(range(10,240,10)):
+    r = r/255
+    for g in reversed(range(10,240,10)):
+        g = g/255
+        for b in reversed(range(10,240,10)):
+            b = b/255
+            INSTANCE_COLORS.append((r,g,b,1))
     
 # Create generator for instance segmentation colors
 def instance_color():
