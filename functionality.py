@@ -1,8 +1,8 @@
 import bpy
 from bpy.app.handlers import persistent
-from . import common
+from . import utils
 
-DEFAULT_CLASS_NAME = common.DEFAULT_CLASS_NAME
+DEFAULT_CLASS_NAME = utils.DEFAULT_CLASS_NAME
 
 # -------------------------------
 # Misc. definitions

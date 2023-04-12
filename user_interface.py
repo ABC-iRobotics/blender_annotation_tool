@@ -1,7 +1,7 @@
 import bpy
-from . import common
+from . import utils
 
-DEFAULT_CLASS_NAME = common.DEFAULT_CLASS_NAME
+DEFAULT_CLASS_NAME = utils.DEFAULT_CLASS_NAME
 
 # Main panel for user interaction
 class BAT_PT_main_panel(bpy.types.Panel):
