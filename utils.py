@@ -111,3 +111,20 @@ def get_render_result():
     img = np.reshape(img, (h, w, 4))[:,:,:]
     img = np.flipud(img)
     return img
+
+@staticmethod
+def get_optical_flow(scene):
+
+    scene.render.engine = 'CYCLES'
+    scene.view_layers['ViewLayer'].use_pass_vector = True
+
+    scene.use_nodes = True
+    for node in scene.node_tree.nodes:
+        scene.node_tree.nodes.remove(node)
+    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+    link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Vector"], viewer_node.inputs['Image'])
+    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+
+    
