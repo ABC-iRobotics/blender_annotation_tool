@@ -82,7 +82,9 @@ def get_depth_image(scene):
         scene.node_tree.nodes.remove(node)
     render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
     viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-    link = scene.node_tree.links.new(render_layers_node.outputs["Depth"], viewer_node.inputs['Image'])
+    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+    link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Depth"], viewer_node.inputs['Image'])
+    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
 
     original_filepath = scene.render.filepath
 
