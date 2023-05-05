@@ -127,4 +127,19 @@ def get_optical_flow(scene):
     link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Vector"], viewer_node.inputs['Image'])
     link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
 
+    original_filepath = scene.render.filepath
+
+    if '.' in scene.render.filepath:
+        filepath = scene.render.filepath
+    else:
+        filepath = scene.render.frame_path(frame=scene.frame_current)
+    filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
     
+    scene.render.filepath = filepath
+
+    map = get_render_result()
+
+    if scene.bat_properties.save_annotation:
+        np.save(filepath, map)
+
+    scene.render.filepath = original_filepath
