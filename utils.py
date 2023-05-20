@@ -83,7 +83,46 @@ def get_depth_image(scene):
     render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
     viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
     composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+    normalize_node = scene.node_tree.nodes.new('CompositorNodeNormalize')
     link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Depth"], viewer_node.inputs['Image'])
+    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+
+    original_filepath = scene.render.filepath
+
+    if '.' in scene.render.filepath:
+        filepath = scene.render.filepath
+    else:
+        filepath = scene.render.frame_path(frame=scene.frame_current)
+    filepath = ''.join(filepath.split('.')[:-1]) + '_depth_map'
+    
+    scene.render.filepath = filepath
+
+    map = get_render_result()
+
+    if scene.bat_properties.save_annotation:
+        np.save(filepath, map)
+
+    scene.render.filepath = original_filepath
+
+@staticmethod
+def get_depth_normalized_image(scene):
+
+    # Step 1:
+    scene.render.engine = 'CYCLES'
+
+    # Step 2:
+    scene.view_layers['ViewLayer'].use_pass_z = True
+
+    # Step 3:
+    scene.use_nodes = True
+    for node in scene.node_tree.nodes:
+        scene.node_tree.nodes.remove(node)
+    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+    normalize_node = scene.node_tree.nodes.new('CompositorNodeNormalize')
+    link_render_normalize = scene.node_tree.links.new(render_layers_node.outputs["Depth"], normalize_node.inputs['Value'])
+    link_viewer_normalize = scene.node_tree.links.new(normalize_node.outputs["Value"], viewer_node.inputs['Image'])
     link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
 
     original_filepath = scene.render.filepath
