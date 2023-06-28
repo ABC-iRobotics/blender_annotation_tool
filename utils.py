@@ -3,7 +3,6 @@ import numpy as np
 
 DEFAULT_CLASS_NAME = "Background"
 
-@staticmethod
 def render_segmentation_masks(scene, instance_color_gen, self):
      # Save original settings
     original_light = scene.display.shading.light
@@ -67,7 +66,6 @@ def render_segmentation_masks(scene, instance_color_gen, self):
 
     return {'FINISHED'}
 
-@staticmethod
 def get_depth_image(scene):
 
     # Step 1:
@@ -104,7 +102,6 @@ def get_depth_image(scene):
 
     scene.render.filepath = original_filepath
 
-@staticmethod
 def get_depth_normalized_image(scene):
 
     # Step 1:
@@ -151,7 +148,6 @@ def get_render_result():
     img = np.flipud(img)
     return img
 
-@staticmethod
 def get_optical_flow(scene):
 
     scene.render.engine = 'CYCLES'
@@ -173,6 +169,37 @@ def get_optical_flow(scene):
     else:
         filepath = scene.render.frame_path(frame=scene.frame_current)
     filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
+    
+    scene.render.filepath = filepath
+
+    map = get_render_result()
+
+    if scene.bat_properties.save_annotation:
+        np.save(filepath, map)
+
+    scene.render.filepath = original_filepath
+
+def get_surface_normal(scene):
+
+    scene.render.engine = 'CYCLES'
+    scene.view_layers['ViewLayer'].use_pass_normal = True
+
+    scene.use_nodes = True
+    for node in scene.node_tree.nodes:
+        scene.node_tree.nodes.remove(node)
+    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+    link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Normal"], viewer_node.inputs['Image'])
+    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+
+    original_filepath = scene.render.filepath
+
+    if '.' in scene.render.filepath:
+        filepath = scene.render.filepath
+    else:
+        filepath = scene.render.frame_path(frame=scene.frame_current)
+    filepath = ''.join(filepath.split('.')[:-1]) + '_surface_normal'
     
     scene.render.filepath = filepath
 
