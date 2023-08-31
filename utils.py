@@ -105,7 +105,9 @@ def get_optical_flow(scene):
     original_render_engine = scene.render.engine
     scene.render.engine = 'CYCLES'
     
-    scene.view_layers['ViewLayer'].use_pass_vector = True
+    new_view_layer(scene)
+
+    scene.view_layers['BATViewLayer'].use_pass_vector = True
 
     scene.use_nodes = True
     for node in scene.node_tree.nodes:
@@ -178,3 +180,16 @@ def get_render_result():
     img = np.reshape(img, (h, w, 4))[:,:,:]
     img = np.flipud(img)
     return img
+
+def new_view_layer(scene):
+    if scene.view_layers.find('BATViewLayer') == -1:
+        scene.view_layers.new('BATViewLayer')
+    
+    collections = []  
+    for classification_class in scene.bat_properties.classification_classes:
+        if classification_class.objects != '':
+            collections.append(classification_class.objects)
+
+    for c in scene.view_layers['BATViewLayer'].layer_collection.children:
+        if c.name not in collections:
+            c.exclude = True
