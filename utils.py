@@ -75,7 +75,7 @@ def get_depth_image(scene):
 
             new_view_layer(scene)
 
-            scene.view_layers['ViewLayer'].use_pass_z = True
+            scene.view_layers['BATViewLayer'].use_pass_z = True
 
             scene.use_nodes = True
             for node in scene.node_tree.nodes:
@@ -151,7 +151,7 @@ def get_surface_normal(scene):
 
             new_view_layer(scene)
             
-            scene.view_layers['ViewLayer'].use_pass_normal = True
+            scene.view_layers['BATViewLayer'].use_pass_normal = True
 
             scene.use_nodes = True
             for node in scene.node_tree.nodes:
@@ -194,6 +194,8 @@ def get_render_result():
 def new_view_layer(scene):
     if scene.view_layers.find('BATViewLayer') == -1:
         scene.view_layers.new('BATViewLayer')
+
+    scene.view_layers["ViewLayer"].use
     
     collections = []  
     for classification_class in scene.bat_properties.classification_classes:
@@ -203,3 +205,8 @@ def new_view_layer(scene):
     for c in scene.view_layers['BATViewLayer'].layer_collection.children:
         if c.name not in collections:
             c.exclude = True
+    
+    if scene.use_nodes:
+        for n in scene.node_tree.nodes:
+            if isinstance(n, bpy.types.CompositorNodeRLayers):
+                n.mute = True
