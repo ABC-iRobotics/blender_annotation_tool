@@ -48,9 +48,9 @@ class BAT_OT_render_annotation(bpy.types.Operator):
 
         scene = context.scene
 
-        #utils.get_depth_image(scene)
+        utils.get_depth_image(scene)
         
-        #utils.get_surface_normal(scene)
+        utils.get_surface_normal(scene)
 
         utils.get_optical_flow(scene)
 

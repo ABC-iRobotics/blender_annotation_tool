@@ -68,107 +68,117 @@ def render_segmentation_masks(scene, instance_color_gen, self):
 
 def get_depth_image(scene):
 
-    original_render_engine = scene.render.engine
-    scene.render.engine = 'CYCLES'
+    for classification_class in scene.bat_properties.classification_classes:
+        if classification_class.depth_map:
+            original_render_engine = scene.render.engine
+            scene.render.engine = 'CYCLES'
 
-    scene.view_layers['ViewLayer'].use_pass_z = True
+            new_view_layer(scene)
 
-    scene.use_nodes = True
-    for node in scene.node_tree.nodes:
-        scene.node_tree.nodes.remove(node)
-    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-    link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Depth"], viewer_node.inputs['Image'])
-    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            scene.view_layers['ViewLayer'].use_pass_z = True
 
-    original_filepath = scene.render.filepath
+            scene.use_nodes = True
+            for node in scene.node_tree.nodes:
+                scene.node_tree.nodes.remove(node)
+            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+            composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+            link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Depth"], viewer_node.inputs['Image'])
+            link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
 
-    if '.' in scene.render.filepath:
-        filepath = scene.render.filepath
-    else:
-        filepath = scene.render.frame_path(frame=scene.frame_current)
-    filepath = ''.join(filepath.split('.')[:-1]) + '_depth_map'
-    
-    scene.render.filepath = filepath
+            original_filepath = scene.render.filepath
 
-    map = get_render_result()
+            if '.' in scene.render.filepath:
+                filepath = scene.render.filepath
+            else:
+                filepath = scene.render.frame_path(frame=scene.frame_current)
+            filepath = ''.join(filepath.split('.')[:-1]) + '_depth_map'
+            
+            scene.render.filepath = filepath
 
-    if scene.bat_properties.save_annotation:
-        np.save(filepath, map)
+            map = get_render_result()
 
-    scene.render.filepath = original_filepath
-    scene.render.engine = original_render_engine
+            if scene.bat_properties.save_annotation:
+                np.save(filepath, map)
+
+            scene.render.filepath = original_filepath
+            scene.render.engine = original_render_engine
 
 def get_optical_flow(scene):
 
-    original_render_engine = scene.render.engine
-    scene.render.engine = 'CYCLES'
-    
-    new_view_layer(scene)
+    for classification_class in scene.bat_properties.classification_classes:
+        if classification_class.optical_flow:
+            original_render_engine = scene.render.engine
+            scene.render.engine = 'CYCLES'
+            
+            new_view_layer(scene)
 
-    scene.view_layers['BATViewLayer'].use_pass_vector = True
+            scene.view_layers['BATViewLayer'].use_pass_vector = True
 
-    scene.use_nodes = True
-    for node in scene.node_tree.nodes:
-        scene.node_tree.nodes.remove(node)
-    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-    link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Vector"], viewer_node.inputs['Image'])
-    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            scene.use_nodes = True
+            for node in scene.node_tree.nodes:
+                scene.node_tree.nodes.remove(node)
+            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+            composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+            link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Vector"], viewer_node.inputs['Image'])
+            link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
 
-    original_filepath = scene.render.filepath
+            original_filepath = scene.render.filepath
 
-    if '.' in scene.render.filepath:
-        filepath = scene.render.filepath
-    else:
-        filepath = scene.render.frame_path(frame=scene.frame_current)
-    filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
-    
-    scene.render.filepath = filepath
+            if '.' in scene.render.filepath:
+                filepath = scene.render.filepath
+            else:
+                filepath = scene.render.frame_path(frame=scene.frame_current)
+            filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
+            
+            scene.render.filepath = filepath
 
-    map = get_render_result()
+            map = get_render_result()
 
-    if scene.bat_properties.save_annotation:
-        np.save(filepath, map)
+            if scene.bat_properties.save_annotation:
+                np.save(filepath, map)
 
-    scene.render.filepath = original_filepath
-    scene.render.engine = original_render_engine
+            scene.render.filepath = original_filepath
+            scene.render.engine = original_render_engine
 
 def get_surface_normal(scene):
 
-    original_render_engine = scene.render.engine
-    scene.render.engine = 'CYCLES'
-    
-    scene.view_layers['ViewLayer'].use_pass_normal = True
+    for classification_class in scene.bat_properties.classification_classes:
+        if classification_class.surface_normal:
+            original_render_engine = scene.render.engine
+            scene.render.engine = 'CYCLES'
 
-    scene.use_nodes = True
-    for node in scene.node_tree.nodes:
-        scene.node_tree.nodes.remove(node)
-    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-    link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Normal"], viewer_node.inputs['Image'])
-    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            new_view_layer(scene)
+            
+            scene.view_layers['ViewLayer'].use_pass_normal = True
 
-    original_filepath = scene.render.filepath
+            scene.use_nodes = True
+            for node in scene.node_tree.nodes:
+                scene.node_tree.nodes.remove(node)
+            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+            composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+            link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Normal"], viewer_node.inputs['Image'])
+            link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
 
-    if '.' in scene.render.filepath:
-        filepath = scene.render.filepath
-    else:
-        filepath = scene.render.frame_path(frame=scene.frame_current)
-    filepath = ''.join(filepath.split('.')[:-1]) + '_surface_normal'
-    
-    scene.render.filepath = filepath
+            original_filepath = scene.render.filepath
 
-    map = get_render_result()
+            if '.' in scene.render.filepath:
+                filepath = scene.render.filepath
+            else:
+                filepath = scene.render.frame_path(frame=scene.frame_current)
+            filepath = ''.join(filepath.split('.')[:-1]) + '_surface_normal'
+            
+            scene.render.filepath = filepath
 
-    if scene.bat_properties.save_annotation:
-        np.save(filepath, map)
+            map = get_render_result()
 
-    scene.render.filepath = original_filepath
-    scene.render.engine = original_render_engine
+            if scene.bat_properties.save_annotation:
+                np.save(filepath, map)
+
+            scene.render.filepath = original_filepath
+            scene.render.engine = original_render_engine
 
 def get_render_result():
 
