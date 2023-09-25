@@ -149,18 +149,23 @@ def get_surface_normal(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
 
-            new_view_layer(scene)
-            
-            scene.view_layers['BATViewLayer'].use_pass_normal = True
-
+            #ez mindegyiknél ugyanaz
             scene.use_nodes = True
             for node in scene.node_tree.nodes:
                 scene.node_tree.nodes.remove(node)
             render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
             composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-            link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Normal"], viewer_node.inputs['Image'])
             link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            
+            #ez kvázi a batviewlayerhez szükséges cucc
+            if scene.view_layers.find('BATViewLayer') == -1:
+                scene.view_layers.new('BATViewLayer')
+            scene.view_layers['BATViewLayer'].use_pass_normal = True
+            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+            render_layers_node_for_BAT = scene.node_tree.nodes.new('CompositorNodeRLayers')
+            render_layers_node_for_BAT.layer = "BATViewLayer"
+            link_viewer_render = scene.node_tree.links.new(render_layers_node_for_BAT.outputs["Normal"], viewer_node.inputs['Image'])
+            
 
             original_filepath = scene.render.filepath
 
@@ -191,6 +196,7 @@ def get_render_result():
     img = np.flipud(img)
     return img
 
+#maybe felesleges
 def new_view_layer(scene):
     if scene.view_layers.find('BATViewLayer') == -1:
         scene.view_layers.new('BATViewLayer')
@@ -205,8 +211,3 @@ def new_view_layer(scene):
     for c in scene.view_layers['BATViewLayer'].layer_collection.children:
         if c.name not in collections:
             c.exclude = True
-    
-    if scene.use_nodes:
-        for n in scene.node_tree.nodes:
-            if isinstance(n, bpy.types.CompositorNodeRLayers):
-                n.mute = True
