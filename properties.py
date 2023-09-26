@@ -39,14 +39,17 @@ def update_classification_class_is_instances(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].is_instances = context.scene.bat_properties.current_class_is_instances
 
+#Update depth map annotation generation, wheter it is needed or not
 def update_depth_map_generation(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].depth_map = context.scene.bat_properties.depth_map_generation
 
+#Update surface normal map annotation generation, wheter it is needed or not
 def update_surface_normal_generation(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].surface_normal = context.scene.bat_properties.surface_normal_generation
 
+#Update optical flow annotation generation, wheter it is needed or not
 def update_optical_flow_generation(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].optical_flow = context.scene.bat_properties.optical_flow_generation
