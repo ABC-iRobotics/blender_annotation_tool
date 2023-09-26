@@ -1,7 +1,13 @@
 import bpy
 import numpy as np
+from enum import Enum
 
 DEFAULT_CLASS_NAME = "Background"
+
+class Pass_Enum(Enum):
+    DEPTH = 'Depth',
+    VECTOR = 'Vector',
+    NORMAL = 'Normal'
 
 def render_segmentation_masks(scene, instance_color_gen, self):
      # Save original settings
@@ -149,24 +155,10 @@ def get_surface_normal(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
 
-            #ez mindegyiknél ugyanaz
-            scene.use_nodes = True
-            for node in scene.node_tree.nodes:
-                scene.node_tree.nodes.remove(node)
-            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-            composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-            link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            render_nodes_setup(scene)
             
-            #ez kvázi a batviewlayerhez szükséges cucc
-            if scene.view_layers.find('BATViewLayer') == -1:
-                scene.view_layers.new('BATViewLayer')
-            scene.view_layers['BATViewLayer'].use_pass_normal = True
-            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-            render_layers_node_for_BAT = scene.node_tree.nodes.new('CompositorNodeRLayers')
-            render_layers_node_for_BAT.layer = "BATViewLayer"
-            link_viewer_render = scene.node_tree.links.new(render_layers_node_for_BAT.outputs["Normal"], viewer_node.inputs['Image'])
+            new_view_layer(scene, Pass_Enum.NORMAL)
             
-
             original_filepath = scene.render.filepath
 
             if '.' in scene.render.filepath:
@@ -196,12 +188,9 @@ def get_render_result():
     img = np.flipud(img)
     return img
 
-#maybe felesleges
-def new_view_layer(scene):
+def new_view_layer(scene, pass_enum):
     if scene.view_layers.find('BATViewLayer') == -1:
         scene.view_layers.new('BATViewLayer')
-
-    scene.view_layers["ViewLayer"].use
     
     collections = []  
     for classification_class in scene.bat_properties.classification_classes:
@@ -211,3 +200,24 @@ def new_view_layer(scene):
     for c in scene.view_layers['BATViewLayer'].layer_collection.children:
         if c.name not in collections:
             c.exclude = True
+    
+    if pass_enum == Pass_Enum.DEPTH:
+        scene.view_layers['BATViewLayer'].use_pass_depth = True
+    if pass_enum == Pass_Enum.VECTOR:
+        scene.view_layers['BATViewLayer'].use_pass_vector = True
+    if pass_enum == Pass_Enum.NORMAL:
+        scene.view_layers['BATViewLayer'].use_pass_normal = True
+    
+    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+    render_layers_node_for_BAT = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    render_layers_node_for_BAT.layer = "BATViewLayer"
+    link_viewer_render = scene.node_tree.links.new(render_layers_node_for_BAT.outputs[pass_enum.value], viewer_node.inputs['Image'])
+
+
+def render_nodes_setup(scene):
+    scene.use_nodes = True
+    for node in scene.node_tree.nodes:
+        scene.node_tree.nodes.remove(node)
+    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
