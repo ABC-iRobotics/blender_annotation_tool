@@ -5,8 +5,8 @@ from enum import Enum
 DEFAULT_CLASS_NAME = "Background"
 
 class Pass_Enum(Enum):
-    DEPTH = 'Depth',
-    VECTOR = 'Vector',
+    DEPTH = 'Depth'
+    VECTOR = 'Vector'
     NORMAL = 'Normal'
 
 def render_segmentation_masks(scene, instance_color_gen, self):
@@ -79,18 +79,9 @@ def get_depth_image(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
 
-            new_view_layer(scene)
-
-            scene.view_layers['BATViewLayer'].use_pass_z = True
-
-            scene.use_nodes = True
-            for node in scene.node_tree.nodes:
-                scene.node_tree.nodes.remove(node)
-            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-            composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-            link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Depth"], viewer_node.inputs['Image'])
-            link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            render_nodes_setup(scene)
+            
+            new_view_layer(scene, Pass_Enum.DEPTH)            
 
             original_filepath = scene.render.filepath
 
@@ -117,18 +108,9 @@ def get_optical_flow(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
             
-            new_view_layer(scene)
-
-            scene.view_layers['BATViewLayer'].use_pass_vector = True
-
-            scene.use_nodes = True
-            for node in scene.node_tree.nodes:
-                scene.node_tree.nodes.remove(node)
-            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-            viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-            composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-            link_viewer_render = scene.node_tree.links.new(render_layers_node.outputs["Vector"], viewer_node.inputs['Image'])
-            link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+            render_nodes_setup(scene)
+            
+            new_view_layer(scene, Pass_Enum.VECTOR)
 
             original_filepath = scene.render.filepath
 
@@ -202,7 +184,7 @@ def new_view_layer(scene, pass_enum):
             c.exclude = True
     
     if pass_enum == Pass_Enum.DEPTH:
-        scene.view_layers['BATViewLayer'].use_pass_depth = True
+        scene.view_layers['BATViewLayer'].use_pass_z = True
     if pass_enum == Pass_Enum.VECTOR:
         scene.view_layers['BATViewLayer'].use_pass_vector = True
     if pass_enum == Pass_Enum.NORMAL:
