@@ -78,10 +78,8 @@ def get_depth_image(scene):
         if classification_class.depth_map:
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
-
-            render_nodes_setup(scene)
             
-            new_view_layer(scene, Pass_Enum.DEPTH)            
+            new_view_layer(scene, Pass_Enum.DEPTH)    
 
             original_filepath = scene.render.filepath
 
@@ -107,8 +105,6 @@ def get_optical_flow(scene):
         if classification_class.optical_flow:
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
-            
-            render_nodes_setup(scene)
             
             new_view_layer(scene, Pass_Enum.VECTOR)
 
@@ -136,8 +132,6 @@ def get_surface_normal(scene):
         if classification_class.surface_normal:
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
-
-            render_nodes_setup(scene)
             
             new_view_layer(scene, Pass_Enum.NORMAL)
             
@@ -161,6 +155,9 @@ def get_surface_normal(scene):
 
 def get_render_result():
 
+    bpy.data.scenes["Scene"].cycles.use_denoising = False
+    bpy.data.scenes["Scene"].cycles.samples = 1
+    bpy.data.scenes["Scene"].cycles.preview_samples = 1
     bpy.ops.render.render(animation=False, write_still=False, use_viewport=False, layer="", scene="")
 
     viewer = bpy.data.images['Viewer Node']
@@ -171,9 +168,28 @@ def get_render_result():
     return img
 
 def new_view_layer(scene, pass_enum):
+    scene.use_nodes = True
+
     if scene.view_layers.find('BATViewLayer') == -1:
         scene.view_layers.new('BATViewLayer')
-    
+
+    if scene.node_tree.nodes.find('BAT_Frame') == -1:
+        frame = scene.node_tree.nodes.new('NodeFrame')
+        frame.name = 'BAT_Frame'
+        frame.label = 'BAT'
+    else:
+        frame = scene.node_tree.nodes['BAT_Frame']
+
+    nodes = []
+
+    if scene.node_tree.nodes.find('RLayersBAT') == -1:
+        render_layers_node_for_BAT = scene.node_tree.nodes.new('CompositorNodeRLayers')
+        render_layers_node_for_BAT.name = 'RLayersBAT'
+        nodes.append(render_layers_node_for_BAT)
+    else:
+        render_layers_node_for_BAT = scene.node_tree.nodes['RLayersBAT']
+        nodes.append(render_layers_node_for_BAT)
+
     collections = []  
     for classification_class in scene.bat_properties.classification_classes:
         if classification_class.objects != '':
@@ -189,17 +205,18 @@ def new_view_layer(scene, pass_enum):
         scene.view_layers['BATViewLayer'].use_pass_vector = True
     if pass_enum == Pass_Enum.NORMAL:
         scene.view_layers['BATViewLayer'].use_pass_normal = True
-    
+
     viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-    render_layers_node_for_BAT = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    viewer_node.name = pass_enum.value + "Viewer"
+    nodes.append(viewer_node)
     render_layers_node_for_BAT.layer = "BATViewLayer"
     link_viewer_render = scene.node_tree.links.new(render_layers_node_for_BAT.outputs[pass_enum.value], viewer_node.inputs['Image'])
 
+    for n in nodes:
+        n.parent = scene.node_tree.nodes['BAT_Frame']
 
-def render_nodes_setup(scene):
-    scene.use_nodes = True
+def view_layer_teardown(scene):
     for node in scene.node_tree.nodes:
-        scene.node_tree.nodes.remove(node)
-    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
-    composite_node = scene.node_tree.nodes.new('CompositorNodeComposite')
-    link_composite_render = scene.node_tree.links.new(render_layers_node.outputs["Image"], composite_node.inputs['Image'])
+        if node.parent == scene.node_tree.nodes['BAT_Frame']:
+            scene.node_tree.nodes.remove(node)
+    scene.node_tree.nodes.remove(scene.node_tree.nodes['BAT_Frame'])

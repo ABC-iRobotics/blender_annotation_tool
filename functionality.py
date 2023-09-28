@@ -54,6 +54,8 @@ class BAT_OT_render_annotation(bpy.types.Operator):
 
         utils.get_optical_flow(scene)
 
+        #utils.view_layer_teardown(scene)
+
         return utils.render_segmentation_masks(scene, instance_color_gen, self)
 
 
