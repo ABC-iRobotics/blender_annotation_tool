@@ -195,7 +195,7 @@ def new_view_layer(scene, pass_enum):
         if classification_class.objects != '':
             collections.append(classification_class.objects)
 
-    for c in scene.view_layers['BATViewLayer'].layer_collection.children:
+    for c in scene.view_layers['BATViewLayer'].layer_collection.children: #ez a rész exclude-ol mindent valamiért
         if c.name not in collections:
             c.exclude = True
     
@@ -220,3 +220,4 @@ def view_layer_teardown(scene):
         if node.parent == scene.node_tree.nodes['BAT_Frame']:
             scene.node_tree.nodes.remove(node)
     scene.node_tree.nodes.remove(scene.node_tree.nodes['BAT_Frame'])
+    scene.view_layers.remove(scene.view_layers['BATViewLayer'])
