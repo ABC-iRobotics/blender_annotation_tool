@@ -79,8 +79,6 @@ def get_depth_image(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
             
-            new_view_layer(scene, Pass_Enum.DEPTH)    
-
             original_filepath = scene.render.filepath
 
             if '.' in scene.render.filepath:
@@ -90,6 +88,8 @@ def get_depth_image(scene):
             filepath = ''.join(filepath.split('.')[:-1]) + '_depth_map'
             
             scene.render.filepath = filepath
+
+            new_view_layer(scene, Pass_Enum.DEPTH)
 
             map = get_render_result()
 
@@ -105,8 +105,6 @@ def get_optical_flow(scene):
         if classification_class.optical_flow:
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
-            
-            new_view_layer(scene, Pass_Enum.VECTOR)
 
             original_filepath = scene.render.filepath
 
@@ -117,6 +115,8 @@ def get_optical_flow(scene):
             filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
             
             scene.render.filepath = filepath
+            
+            new_view_layer(scene, Pass_Enum.VECTOR)
 
             map = get_render_result()
 
@@ -133,8 +133,6 @@ def get_surface_normal(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
             
-            new_view_layer(scene, Pass_Enum.NORMAL)
-            
             original_filepath = scene.render.filepath
 
             if '.' in scene.render.filepath:
@@ -144,6 +142,8 @@ def get_surface_normal(scene):
             filepath = ''.join(filepath.split('.')[:-1]) + '_surface_normal'
             
             scene.render.filepath = filepath
+
+            new_view_layer(scene, Pass_Enum.NORMAL)
 
             map = get_render_result()
 
@@ -155,6 +155,7 @@ def get_surface_normal(scene):
 
 def get_render_result():
 
+    bpy.data.scenes["Scene"].render.use_motion_blur = False
     bpy.data.scenes["Scene"].cycles.use_denoising = False
     bpy.data.scenes["Scene"].cycles.samples = 1
     bpy.data.scenes["Scene"].cycles.preview_samples = 1
@@ -195,7 +196,7 @@ def new_view_layer(scene, pass_enum):
         if classification_class.objects != '':
             collections.append(classification_class.objects)
 
-    for c in scene.view_layers['BATViewLayer'].layer_collection.children: #ez a rész exclude-ol mindent valamiért
+    for c in scene.view_layers['BATViewLayer'].layer_collection.children:
         if c.name not in collections:
             c.exclude = True
     
@@ -206,10 +207,17 @@ def new_view_layer(scene, pass_enum):
     if pass_enum == Pass_Enum.NORMAL:
         scene.view_layers['BATViewLayer'].use_pass_normal = True
 
-    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
-    viewer_node.name = pass_enum.value + "Viewer"
-    nodes.append(viewer_node)
+    if scene.node_tree.nodes.find('BATViewer') == -1:
+        viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+        viewer_node.name = "BATViewer"
+        nodes.append(viewer_node)
+    else:
+        viewer_node = scene.node_tree.nodes["BATViewer"]
+    
     render_layers_node_for_BAT.layer = "BATViewLayer"
+    #normalize = scene.node_tree.nodes.new('CompositorNodeNormalize')
+    #link_render_normalize = scene.node_tree.links.new(render_layers_node_for_BAT.outputs[pass_enum.value], normalize.inputs['Value'])
+    #link_viewer_normalize = scene.node_tree.links.new(normalize.outputs['Value'], viewer_node.inputs['Image'])
     link_viewer_render = scene.node_tree.links.new(render_layers_node_for_BAT.outputs[pass_enum.value], viewer_node.inputs['Image'])
 
     for n in nodes:
