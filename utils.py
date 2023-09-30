@@ -79,6 +79,8 @@ def get_depth_image(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
             
+            new_view_layer(scene, Pass_Enum.DEPTH)
+
             original_filepath = scene.render.filepath
 
             if '.' in scene.render.filepath:
@@ -89,9 +91,7 @@ def get_depth_image(scene):
             
             scene.render.filepath = filepath
 
-            new_view_layer(scene, Pass_Enum.DEPTH)
-
-            map = get_render_result()
+            map = get_render_result(scene)
 
             if scene.bat_properties.save_annotation:
                 np.save(filepath, map)
@@ -106,6 +106,8 @@ def get_optical_flow(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
 
+            new_view_layer(scene, Pass_Enum.VECTOR)
+
             original_filepath = scene.render.filepath
 
             if '.' in scene.render.filepath:
@@ -115,10 +117,8 @@ def get_optical_flow(scene):
             filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
             
             scene.render.filepath = filepath
-            
-            new_view_layer(scene, Pass_Enum.VECTOR)
 
-            map = get_render_result()
+            map = get_render_result(scene)
 
             if scene.bat_properties.save_annotation:
                 np.save(filepath, map)
@@ -133,6 +133,8 @@ def get_surface_normal(scene):
             original_render_engine = scene.render.engine
             scene.render.engine = 'CYCLES'
             
+            new_view_layer(scene, Pass_Enum.NORMAL)
+
             original_filepath = scene.render.filepath
 
             if '.' in scene.render.filepath:
@@ -143,9 +145,7 @@ def get_surface_normal(scene):
             
             scene.render.filepath = filepath
 
-            new_view_layer(scene, Pass_Enum.NORMAL)
-
-            map = get_render_result()
+            map = get_render_result(scene)
 
             if scene.bat_properties.save_annotation:
                 np.save(filepath, map)
@@ -153,13 +153,23 @@ def get_surface_normal(scene):
             scene.render.filepath = original_filepath
             scene.render.engine = original_render_engine
 
-def get_render_result():
+def get_render_result(scene):
 
-    bpy.data.scenes["Scene"].render.use_motion_blur = False
-    bpy.data.scenes["Scene"].cycles.use_denoising = False
-    bpy.data.scenes["Scene"].cycles.samples = 1
-    bpy.data.scenes["Scene"].cycles.preview_samples = 1
+    original_motion_blur = scene.render.use_motion_blur
+    scene.render.use_motion_blur = False
+    orogonal_denoising = scene.cycles.use_denoising
+    scene.cycles.use_denoising = False
+    original_samples = scene.cycles.samples
+    scene.cycles.samples = 1
+    original_preview_samples = scene.cycles.preview_samples
+    scene.cycles.preview_samples = 1
+    
     bpy.ops.render.render(animation=False, write_still=False, use_viewport=False, layer="", scene="")
+
+    scene.render.use_motion_blur = original_motion_blur
+    scene.cycles.use_denoising = orogonal_denoising
+    scene.cycles.samples = original_samples
+    scene.cycles.preview_samples = original_preview_samples
 
     viewer = bpy.data.images['Viewer Node']
     w, h = viewer.size
@@ -200,6 +210,14 @@ def new_view_layer(scene, pass_enum):
         if c.name not in collections:
             c.exclude = True
     
+    for obj in bpy.data.objects:
+        if obj == scene.camera:
+            for x in obj.users_collection:
+                for i in scene.view_layers['BATViewLayer'].layer_collection.children:
+                    if i.collection  == x:
+                        i.exclude = False
+                
+    
     if pass_enum == Pass_Enum.DEPTH:
         scene.view_layers['BATViewLayer'].use_pass_z = True
     if pass_enum == Pass_Enum.VECTOR:
@@ -215,9 +233,6 @@ def new_view_layer(scene, pass_enum):
         viewer_node = scene.node_tree.nodes["BATViewer"]
     
     render_layers_node_for_BAT.layer = "BATViewLayer"
-    #normalize = scene.node_tree.nodes.new('CompositorNodeNormalize')
-    #link_render_normalize = scene.node_tree.links.new(render_layers_node_for_BAT.outputs[pass_enum.value], normalize.inputs['Value'])
-    #link_viewer_normalize = scene.node_tree.links.new(normalize.outputs['Value'], viewer_node.inputs['Image'])
     link_viewer_render = scene.node_tree.links.new(render_layers_node_for_BAT.outputs[pass_enum.value], viewer_node.inputs['Image'])
 
     for n in nodes:
@@ -229,3 +244,13 @@ def view_layer_teardown(scene):
             scene.node_tree.nodes.remove(node)
     scene.node_tree.nodes.remove(scene.node_tree.nodes['BAT_Frame'])
     scene.view_layers.remove(scene.view_layers['BATViewLayer'])
+
+def get_annotations(scene):
+    
+    get_depth_image(scene)
+    get_surface_normal(scene)
+    get_optical_flow(scene)
+
+    for classification_class in scene.bat_properties.classification_classes:
+        if classification_class.depth_map or classification_class.surface_normal or classification_class.optical_flow:
+            view_layer_teardown(scene)
