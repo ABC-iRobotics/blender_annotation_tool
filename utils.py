@@ -1,6 +1,7 @@
 import bpy
 import numpy as np
 from enum import Enum
+import time
 
 DEFAULT_CLASS_NAME = "Background"
 
@@ -181,8 +182,27 @@ def get_render_result(scene):
 def new_view_layer(scene, pass_enum):
     scene.use_nodes = True
 
+    for node in scene.node_tree.nodes:
+        if isinstance(node, bpy.types.CompositorNodeViewer):
+            scene.node_tree.nodes.remove(node)
+    
     if scene.view_layers.find('BATViewLayer') == -1:
         scene.view_layers.new('BATViewLayer')
+
+        collections = []  
+        for classification_class in scene.bat_properties.classification_classes:
+            if classification_class.objects != '':
+                collections.append(classification_class.objects)
+
+        for c in scene.view_layers['BATViewLayer'].layer_collection.children:
+            if c.name not in collections:
+                c.exclude = True
+    
+        obj = scene.camera
+        for x in obj.users_collection:
+            for i in scene.view_layers['BATViewLayer'].layer_collection.children:
+                if i.collection  == x:
+                    i.exclude = False
 
     if scene.node_tree.nodes.find('BAT_Frame') == -1:
         frame = scene.node_tree.nodes.new('NodeFrame')
@@ -201,23 +221,6 @@ def new_view_layer(scene, pass_enum):
         render_layers_node_for_BAT = scene.node_tree.nodes['RLayersBAT']
         nodes.append(render_layers_node_for_BAT)
 
-    collections = []  
-    for classification_class in scene.bat_properties.classification_classes:
-        if classification_class.objects != '':
-            collections.append(classification_class.objects)
-
-    for c in scene.view_layers['BATViewLayer'].layer_collection.children:
-        if c.name not in collections:
-            c.exclude = True
-    
-    for obj in bpy.data.objects:
-        if obj == scene.camera:
-            for x in obj.users_collection:
-                for i in scene.view_layers['BATViewLayer'].layer_collection.children:
-                    if i.collection  == x:
-                        i.exclude = False
-                
-    
     if pass_enum == Pass_Enum.DEPTH:
         scene.view_layers['BATViewLayer'].use_pass_z = True
     if pass_enum == Pass_Enum.VECTOR:
