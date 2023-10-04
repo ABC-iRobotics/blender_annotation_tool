@@ -1,7 +1,7 @@
 import bpy
-from . import common
+from . import utils
 
-DEFAULT_CLASS_NAME = common.DEFAULT_CLASS_NAME
+DEFAULT_CLASS_NAME = utils.DEFAULT_CLASS_NAME
 
 # Main panel for user interaction
 class BAT_PT_main_panel(bpy.types.Panel):
@@ -35,6 +35,18 @@ class BAT_PT_main_panel(bpy.types.Panel):
         if context.scene.bat_properties.current_class == DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'current_class_is_instances', text='Instance segmentation')
+        row = box.row(align=True)
+        if context.scene.bat_properties.current_class == DEFAULT_CLASS_NAME:
+            row.enabled = False
+        row.prop(context.scene.bat_properties, 'depth_map_generation', text='Depth map')
+        row = box.row(align=True)
+        if context.scene.bat_properties.current_class == DEFAULT_CLASS_NAME:
+            row.enabled = False
+        row.prop(context.scene.bat_properties, 'surface_normal_generation', text='Surface normal')
+        row = box.row(align=True)
+        if context.scene.bat_properties.current_class == DEFAULT_CLASS_NAME:
+            row.enabled = False
+        row.prop(context.scene.bat_properties, 'optical_flow_generation', text='Optical flow')
 
         layout.row().separator()
 
@@ -44,8 +56,8 @@ class BAT_PT_main_panel(bpy.types.Panel):
         row.prop(context.scene.bat_properties, 'save_annotation', text='Save annotations')
         row = layout.row()
         row.operator('render.bat_render_annotation', text='Render annotation', icon='RENDER_STILL')
-        row = layout.row()
-        row.operator('render.bat_render_animation', text='Render animation', icon='RENDER_ANIMATION')
+        #row = layout.row()
+        #row.operator('render.bat_render_animation', text='Render animation', icon='RENDER_ANIMATION')
 
 
 # -------------------------------
