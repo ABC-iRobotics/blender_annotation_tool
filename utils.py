@@ -93,6 +93,7 @@ def get_depth_image(scene):
             scene.render.filepath = filepath
 
             map = get_render_result(scene)
+            map = map[:,:,0]
 
             if scene.bat_properties.save_annotation:
                 np.save(filepath, map)
@@ -120,6 +121,7 @@ def get_optical_flow(scene):
             scene.render.filepath = filepath
 
             map = get_render_result(scene)
+            map = map[:,:,2:]
 
             if scene.bat_properties.save_annotation:
                 np.save(filepath, map)
