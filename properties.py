@@ -39,21 +39,6 @@ def update_classification_class_is_instances(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].is_instances = context.scene.bat_properties.current_class_is_instances
 
-#Update depth map annotation generation, wheter it is needed or not
-def update_depth_map_generation(self, context):
-    index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
-    context.scene.bat_properties.classification_classes[index].depth_map = context.scene.bat_properties.depth_map_generation
-
-#Update surface normal map annotation generation, wheter it is needed or not
-def update_surface_normal_generation(self, context):
-    index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
-    context.scene.bat_properties.classification_classes[index].surface_normal = context.scene.bat_properties.surface_normal_generation
-
-#Update optical flow annotation generation, wheter it is needed or not
-def update_optical_flow_generation(self, context):
-    index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
-    context.scene.bat_properties.classification_classes[index].optical_flow = context.scene.bat_properties.optical_flow_generation
-
 # -------------------------------
 # Properties for describing a single class
 
@@ -76,18 +61,6 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
     is_instances: bpy.props.BoolProperty(
         name="is_instances",
         description="If true the objects in the associated collection will be handled as instances (separate colors in annotation)"
-    )
-    depth_map: bpy.props.BoolProperty(
-        name="depth_map",
-        description="If true the depth map of the objects in the associated collection will be generated"
-    )
-    surface_normal: bpy.props.BoolProperty(
-        name="surface_normal",
-        description="If true the surface normal map of the objects in the associated collection will be generated"
-    )
-    optical_flow: bpy.props.BoolProperty(
-        name="optical_flow",
-        description="If true the optical flow of the objects in the associated collection will be generated"
     )
 
 
@@ -125,20 +98,17 @@ class BAT_Properties(bpy.types.PropertyGroup):
     depth_map_generation: bpy.props.BoolProperty(
         name="generate depth map?",
         description="Generate the depth map of this class",
-        default=False,
-        update=update_depth_map_generation
+        default=False
     )
     surface_normal_generation: bpy.props.BoolProperty(
         name="generate surface normal?",
         description="Generate the surface normal of this class",
-        default=False,
-        update=update_surface_normal_generation
+        default=False
     )
     optical_flow_generation: bpy.props.BoolProperty(
         name="generate optical flow?",
         description="Generate the optical flow of this class",
-        default=False,
-        update=update_optical_flow_generation
+        default=False
     )
 
     # Output properties

@@ -75,86 +75,83 @@ def render_segmentation_masks(scene, instance_color_gen, self):
 
 def get_depth_image(scene):
 
-    for classification_class in scene.bat_properties.classification_classes:
-        if classification_class.depth_map:
-            original_render_engine = scene.render.engine
-            scene.render.engine = 'CYCLES'
-            
-            new_view_layer(scene, Pass_Enum.DEPTH)
+    if scene.bat_properties.depth_map_generation:
+        original_render_engine = scene.render.engine
+        scene.render.engine = 'CYCLES'
+        
+        new_view_layer(scene, Pass_Enum.DEPTH)
 
-            original_filepath = scene.render.filepath
+        original_filepath = scene.render.filepath
 
-            if '.' in scene.render.filepath:
-                filepath = scene.render.filepath
-            else:
-                filepath = scene.render.frame_path(frame=scene.frame_current)
-            filepath = ''.join(filepath.split('.')[:-1]) + '_depth_map'
-            
-            scene.render.filepath = filepath
+        if '.' in scene.render.filepath:
+            filepath = scene.render.filepath
+        else:
+            filepath = scene.render.frame_path(frame=scene.frame_current)
+        filepath = ''.join(filepath.split('.')[:-1]) + '_depth_map'
+        
+        scene.render.filepath = filepath
 
-            map = get_render_result(scene)
-            map = map[:,:,0]
+        map = get_render_result(scene)
+        map = map[:,:,0]
 
-            if scene.bat_properties.save_annotation:
-                np.save(filepath, map)
+        if scene.bat_properties.save_annotation:
+            np.save(filepath, map)
 
-            scene.render.filepath = original_filepath
-            scene.render.engine = original_render_engine
+        scene.render.filepath = original_filepath
+        scene.render.engine = original_render_engine
 
 def get_optical_flow(scene):
 
-    for classification_class in scene.bat_properties.classification_classes:
-        if classification_class.optical_flow:
-            original_render_engine = scene.render.engine
-            scene.render.engine = 'CYCLES'
+    if scene.bat_properties.optical_flow_generation:
+        original_render_engine = scene.render.engine
+        scene.render.engine = 'CYCLES'
 
-            new_view_layer(scene, Pass_Enum.VECTOR)
+        new_view_layer(scene, Pass_Enum.VECTOR)
 
-            original_filepath = scene.render.filepath
+        original_filepath = scene.render.filepath
 
-            if '.' in scene.render.filepath:
-                filepath = scene.render.filepath
-            else:
-                filepath = scene.render.frame_path(frame=scene.frame_current)
-            filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
-            
-            scene.render.filepath = filepath
+        if '.' in scene.render.filepath:
+            filepath = scene.render.filepath
+        else:
+            filepath = scene.render.frame_path(frame=scene.frame_current)
+        filepath = ''.join(filepath.split('.')[:-1]) + '_optical_flow'
+        
+        scene.render.filepath = filepath
 
-            map = get_render_result(scene)
-            map = map[:,:,2:]
+        map = get_render_result(scene)
+        map = map[:,:,2:]
 
-            if scene.bat_properties.save_annotation:
-                np.save(filepath, map)
+        if scene.bat_properties.save_annotation:
+            np.save(filepath, map)
 
-            scene.render.filepath = original_filepath
-            scene.render.engine = original_render_engine
+        scene.render.filepath = original_filepath
+        scene.render.engine = original_render_engine
 
 def get_surface_normal(scene):
 
-    for classification_class in scene.bat_properties.classification_classes:
-        if classification_class.surface_normal:
-            original_render_engine = scene.render.engine
-            scene.render.engine = 'CYCLES'
-            
-            new_view_layer(scene, Pass_Enum.NORMAL)
+    if scene.bat_properties.surface_normal_generation:
+        original_render_engine = scene.render.engine
+        scene.render.engine = 'CYCLES'
+        
+        new_view_layer(scene, Pass_Enum.NORMAL)
 
-            original_filepath = scene.render.filepath
+        original_filepath = scene.render.filepath
 
-            if '.' in scene.render.filepath:
-                filepath = scene.render.filepath
-            else:
-                filepath = scene.render.frame_path(frame=scene.frame_current)
-            filepath = ''.join(filepath.split('.')[:-1]) + '_surface_normal'
-            
-            scene.render.filepath = filepath
+        if '.' in scene.render.filepath:
+            filepath = scene.render.filepath
+        else:
+            filepath = scene.render.frame_path(frame=scene.frame_current)
+        filepath = ''.join(filepath.split('.')[:-1]) + '_surface_normal'
+        
+        scene.render.filepath = filepath
 
-            map = get_render_result(scene)
+        map = get_render_result(scene)
 
-            if scene.bat_properties.save_annotation:
-                np.save(filepath, map)
+        if scene.bat_properties.save_annotation:
+            np.save(filepath, map)
 
-            scene.render.filepath = original_filepath
-            scene.render.engine = original_render_engine
+        scene.render.filepath = original_filepath
+        scene.render.engine = original_render_engine
 
 def get_render_result(scene):
 
@@ -256,5 +253,5 @@ def get_annotations(scene):
     get_depth_image(scene)
     get_surface_normal(scene)
     get_optical_flow(scene)
-    
+
     view_layer_teardown(scene)
