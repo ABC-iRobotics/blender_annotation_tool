@@ -244,18 +244,17 @@ def new_view_layer(scene, pass_enum):
         n.parent = scene.node_tree.nodes['BAT_Frame']
 
 def view_layer_teardown(scene):
-    for node in scene.node_tree.nodes:
-        if node.parent == scene.node_tree.nodes['BAT_Frame']:
-            scene.node_tree.nodes.remove(node)
-    scene.node_tree.nodes.remove(scene.node_tree.nodes['BAT_Frame'])
-    scene.view_layers.remove(scene.view_layers['BATViewLayer'])
+    if scene.node_tree.nodes.find('BAT_Frame') != -1 and scene.view_layers.find('BATViewLayer') != -1:
+        for node in scene.node_tree.nodes:
+            if node.parent == scene.node_tree.nodes['BAT_Frame']:
+                scene.node_tree.nodes.remove(node)
+        scene.node_tree.nodes.remove(scene.node_tree.nodes['BAT_Frame'])
+        scene.view_layers.remove(scene.view_layers['BATViewLayer'])
 
 def get_annotations(scene):
     
     get_depth_image(scene)
     get_surface_normal(scene)
     get_optical_flow(scene)
-
-    for classification_class in scene.bat_properties.classification_classes:
-        if classification_class.depth_map or classification_class.surface_normal or classification_class.optical_flow:
-            view_layer_teardown(scene)
+    
+    view_layer_teardown(scene)
