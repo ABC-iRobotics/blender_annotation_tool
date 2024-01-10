@@ -29,11 +29,24 @@ def setDefaultClassName(scene):
     if not classes:
         background_class = classes.add()
         background_class.name = DEFAULT_CLASS_NAME
-        background_class.mask_color = (0,0,0)
+        background_class.mask_color = (0.0,0.0,0.0,1.0)
 
 
 # -------------------------------
 # Operators
+
+# Setup BAT scene
+class BAT_OT_setup_bat_scene(bpy.types.Operator):
+    """Setup BAT scene"""
+    bl_idname = 'bat.setup_bat_scene'
+    bl_label = 'Setup BAT scene'
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+
+        utils.setup_bat_scene(context, utils.BAT_SCENE_NAME, self.report)
+
+        return {'FINISHED'}
 
 # Render annotations
 class BAT_OT_render_annotation(bpy.types.Operator):
@@ -169,7 +182,7 @@ def onRenderWrite(scene):
 # -------------------------------
 # Register/Unregister
 
-classes = [BAT_OT_render_annotation, BAT_OT_render_animation, BAT_OT_add_class, BAT_OT_remove_class]
+classes = [BAT_OT_setup_bat_scene, BAT_OT_render_annotation, BAT_OT_render_animation, BAT_OT_add_class, BAT_OT_remove_class]
 
 def register():
     # Add handlers

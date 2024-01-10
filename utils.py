@@ -3,12 +3,194 @@ import numpy as np
 from enum import Enum
 import time
 
-DEFAULT_CLASS_NAME = "Background"
+from collections.abc import Callable, Iterator
+from bpy.types import Collection, Material, World, Scene, Context
+
+DEFAULT_CLASS_NAME = 'Background'
+BAT_SCENE_NAME = 'BAT_Scene'
+BAT_SEGMENTATION_MASK_MAT_NAME = 'BAT_segmentation_mask'
 
 class Pass_Enum(Enum):
     DEPTH = 'Depth'
     VECTOR = 'Vector'
     NORMAL = 'Normal'
+
+
+def instance_color_gen(base_color: tuple[float,float,float,float]) -> Iterator[tuple[float,float,float]]:
+    '''
+    Make a generator for creating instance colors from a single base color
+
+    Args:
+        base_color : Base color (RGB) to initiate the generator with
+
+    Returns:
+        gen : A generator to generate new colors for new instances
+    '''
+    for i in range(255):
+        mask_color = list(base_color)
+        mask_color[3] = (i+1)/255
+        yield tuple(mask_color)
+    
+
+def find_parent_collection(root_collection: Collection, collection: Collection) -> Collection | None:
+    '''
+    Recursive function to find and return parent collection of given collection
+
+    Args:
+        root_collection : Root collection to start the search from
+        collection : Collection to look for
+
+    Returns:
+        parent : Parent of "collection" if "collection" exists in the tree, else None
+    '''
+    if collection.name in root_collection.children:
+        return root_collection
+    else:
+        for child_collection in root_collection.children:
+            parent = find_parent_collection(child_collection, collection)
+            if parent:
+                return parent
+
+
+def add_empty_world(world: World, scene: Scene) -> None:
+    '''
+    Create an "empty" (dark) copy of the given world and link it to a scene
+
+    Args:
+        world : Input world to copy settings from
+        scene : Scene to which the empty world will be linked
+    '''
+    # Create a copy of the world
+    world_copy = world.copy()
+    scene.world = world_copy
+
+    # Set up node tree
+    scene.world.use_nodes = True
+    for n in scene.world.node_tree.nodes:
+        scene.world.node_tree.nodes.remove(n)
+    # Only add an output node (the world will be dark)
+    world_output_node = scene.world.node_tree.nodes.new('ShaderNodeOutputWorld')
+    world_output_node.is_active_output = True
+    
+    return world_copy
+
+
+def make_mask_material(material_name: str) -> Material:
+    '''
+    Create material for making segmentation masks
+
+    Args:
+        material_name : The name of the new material
+
+    Returns:
+        material : The created material
+    '''
+    # Create new material
+    mask_material = bpy.data.materials.new(material_name)
+    mask_material.use_nodes = True
+    for n in mask_material.node_tree.nodes:
+        mask_material.node_tree.nodes.remove(n)
+
+    # Add nodes
+    obj_info_node = mask_material.node_tree.nodes.new('ShaderNodeObjectInfo')
+    emission_shader_node = mask_material.node_tree.nodes.new('ShaderNodeEmission')
+    matrial_output_node = mask_material.node_tree.nodes.new('ShaderNodeOutputMaterial')
+    matrial_output_node.is_active_output = True
+
+    # Create links
+    mask_material.node_tree.links.new(emission_shader_node.inputs['Color'], obj_info_node.outputs['Color'])
+    mask_material.node_tree.links.new(matrial_output_node.inputs['Surface'], emission_shader_node.outputs['Emission'])
+    emission_shader_node.inputs['Strength'].default_value = 100
+
+    return mask_material
+
+
+
+def setup_bat_scene(context: Context, bat_scene_name: str, report_func: Callable[[set[str], str], None]) -> None:
+    '''
+    Set up a separate scene for BAT
+
+    All data is linked except for objects that are associated to classes
+
+    Args:
+        context : Current context
+        bat_scene_name : Name for the scene BAT will use
+        report_func : Report function of operator to display errors
+    '''
+    active_scene = context.scene
+
+    # Create the BAT scene if it does not exist yet
+    if bat_scene_name not in [s.name for s in bpy.data.scenes]:
+        bat_scene = active_scene.copy()
+        bat_scene.name = bat_scene_name
+    else:
+        bat_scene = bpy.data.scenes[bat_scene_name]
+
+    
+    add_empty_world(active_scene.world, bat_scene)
+
+    mask_material = make_mask_material(BAT_SEGMENTATION_MASK_MAT_NAME)
+
+    # Use the Cycles render engine
+    bat_scene.render.engine = 'CYCLES'
+    # Raw view transform so colors will be the same as in BAT
+    bat_scene.view_settings.view_transform = 'Raw'
+    # Disable anti aliasing
+    bat_scene.cycles.filter_width = 0.01
+    bat_scene.cycles.use_denoising = False
+
+    # Image output settings
+    bat_scene.render.image_settings.file_format = 'PNG'
+    bat_scene.render.image_settings.color_depth = '16'
+    bat_scene.render.image_settings.color_mode = 'RGBA'
+    bat_scene.render.image_settings.compression = 0
+
+    
+    # Unlink all collections and objects
+    for coll in bat_scene.collection.children:
+        bat_scene.collection.children.unlink(coll)
+    for obj in bat_scene.collection.objects:
+        bat_scene.collection.objects.unlink(obj)
+
+    bat_scene.collection.objects.link(active_scene.camera)
+        
+
+    # Link needed collections/objects to BAT scene
+    for classification_class in [c for c in bat_scene.bat_properties.classification_classes if c.name != DEFAULT_CLASS_NAME]:
+        # Get original collection and create a new one in the BAT scene for each
+        # classification class
+        orig_collection = bpy.data.collections.get(classification_class.objects)
+        if orig_collection is None:
+            # If the collection is deleted or renamed in the meantime
+            report_func({'ERROR'},'Could not find collection {}!'.format(classification_class.objects))
+            orig_collection = bpy.data.collections.get(classification_class.objects)
+        new_collection = bpy.data.collections.new(classification_class.name)
+        bat_scene.collection.children.link(new_collection)
+
+        # Duplicate objects
+        for obj in orig_collection.objects:
+            obj_copy = obj.copy()
+            obj_copy.data = obj.data.copy()
+            new_collection.objects.link(obj_copy)
+
+            if obj_copy.data.materials:
+                obj_copy.data.materials[0] = mask_material
+            else:
+                obj_copy.data.materials.append(mask_material)
+        
+            if not classification_class.is_instances:
+                color = list(classification_class.mask_color)
+                obj_copy.color = color
+            elif classification_class.is_instances:
+                try:
+                    color = next(classification_class.instance_color_gen)
+                    obj.color = color
+                    
+                except StopIteration:
+                    report_func({'ERROR_INVALID_INPUT'}, 'Too many instances, not enough color codes!')
+            
+            
+
 
 def render_segmentation_masks(scene, instance_color_gen, self):
      # Save original settings

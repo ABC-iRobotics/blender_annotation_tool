@@ -1,4 +1,5 @@
 import bpy
+from . import utils
 
 # -------------------------------
 # Utility functions
@@ -29,6 +30,9 @@ def update_classification_class_color(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].mask_color = context.scene.bat_properties.current_class_color
 
+    if context.scene.bat_properties.classification_classes[index].is_instances:
+        context.scene.bat_properties.classification_classes[index].instance_color_gen = utils.instance_color_gen(context.scene.bat_properties.current_class_color)
+
 # Update associated collection of class in the list of classes if the associated collection for the current class is changed
 def update_classification_class_objects(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -39,10 +43,16 @@ def update_classification_class_is_instances(self, context):
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
     context.scene.bat_properties.classification_classes[index].is_instances = context.scene.bat_properties.current_class_is_instances
 
+    if context.scene.bat_properties.classification_classes[index].is_instances:
+        context.scene.bat_properties.classification_classes[index].instance_color_gen = utils.instance_color_gen(context.scene.bat_properties.current_class_color)
+
 # -------------------------------
 # Properties for describing a single class
 
 class BAT_ClassificationClass(bpy.types.PropertyGroup):
+
+    instance_color_gen = None
+
     name: bpy.props.StringProperty(
         name="class_name",
         description="Identifier for the class"
@@ -50,7 +60,8 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
     mask_color: bpy.props.FloatVectorProperty(
         name="object_color",
         subtype='COLOR',
-        default=(1.0, 1.0, 1.0),
+        size=4,
+        default=(1.0, 1.0, 1.0, 1.0),
         min=0.0, max=1.0,
         description="Color used for representing the class on the annotated image"
     )
@@ -79,7 +90,8 @@ class BAT_Properties(bpy.types.PropertyGroup):
     current_class_color: bpy.props.FloatVectorProperty(
         name="Mask color",
         subtype='COLOR',
-        default=(0.0, 0.0, 0.0),
+        size=4,
+        default=(0.0, 0.0, 0.0, 1.0),
         min=0.0, max=1.0,
         description="Color value of the current class for the segmentation mask",
         update=update_classification_class_color
