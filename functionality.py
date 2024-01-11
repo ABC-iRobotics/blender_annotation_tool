@@ -4,36 +4,6 @@ from . import utils
 
 from bpy.types import Context
 
-DEFAULT_CLASS_NAME = utils.DEFAULT_CLASS_NAME
-
-# -------------------------------
-# Misc. definitions
-
-# Define list of colors for instance segmentation
-INSTANCE_COLORS = []
-for r in reversed(range(10,240,10)):
-    r = r/255
-    for g in reversed(range(10,240,10)):
-        g = g/255
-        for b in reversed(range(10,240,10)):
-            b = b/255
-            INSTANCE_COLORS.append((r,g,b,1))
-    
-# Create generator for instance segmentation colors
-def instance_color():
-    for color in INSTANCE_COLORS:
-        yield color
-
-# Default value setter for list of classes ('Background' class)
-def setDefaultClassName(scene):
-    classes = scene.bat_properties.classification_classes
-    # set default value if the list of classes is empty
-    if not classes:
-        background_class = classes.add()
-        background_class.name = DEFAULT_CLASS_NAME
-        background_class.mask_color = (0.0,0.0,0.0,1.0)
-
-
 # -------------------------------
 # Operators
 
@@ -67,6 +37,7 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
 
         # Use the Cycles render engine
         bat_scene.render.engine = 'CYCLES'
+        bat_scene.cycles.samples = 2
         # Raw view transform so colors will be the same as in BAT
         bat_scene.view_settings.view_transform = 'Raw'
         # Disable anti aliasing and denoising
@@ -90,7 +61,7 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             
 
         # Link needed collections/objects to BAT scene
-        for classification_class in [c for c in bat_scene.bat_properties.classification_classes if c.name != DEFAULT_CLASS_NAME]:
+        for classification_class in [c for c in bat_scene.bat_properties.classification_classes if c.name != utils.DEFAULT_CLASS_NAME]:
             # Get original collection and create a new one in the BAT scene for each
             # classification class
             orig_collection = bpy.data.collections.get(classification_class.objects)
@@ -164,32 +135,25 @@ class BAT_OT_render_annotation(bpy.types.Operator):
     bl_label = 'Render annotation'
     bl_options = {'REGISTER'}
 
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Render annotations
 
-        instance_color_gen = instance_color()
+        Args:
+            context : Current context
+        '''
 
-        scene = context.scene
+        bpy.ops.bat.setup_bat_scene()
 
-        utils.get_annotations(scene)
+        bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
+        if not bat_scene is None:
+            utils.render_scene(bat_scene)
 
-        return utils.render_segmentation_masks(scene, instance_color_gen, self)
+        # utils.get_annotations(active_scene)
+        # utils.render_segmentation_masks(active_scene, instance_color_gen, self)
 
+        bpy.ops.bat.remove_bat_scene()
 
-# Render animation (normal render as well as annotation render)
-class BAT_OT_render_animation(bpy.types.Operator):
-    """Render animation"""
-    bl_idname = 'render.bat_render_animation'
-    bl_label = 'Render animation (blocking)'
-    bl_options = {'REGISTER'}
-    
-    def execute(self, context):
-        scene = context.scene
-        for frame_num in range(scene.frame_start, scene.frame_end+1, scene.frame_step):
-            scene.frame_set(frame_num)
-            original_render_path = scene.render.filepath
-            scene.render.filepath = scene.render.frame_path(frame=scene.frame_current)
-            bpy.ops.render.render(write_still=True)
-            scene.render.filepath = original_render_path
         return {'FINISHED'}
 
 
@@ -261,12 +225,12 @@ class BAT_OT_remove_class(bpy.types.Operator):
 
 # Set default value for the list of classes upon registering the addon
 def onRegister(scene):
-    setDefaultClassName(scene)
+    utils.set_default_class_name(scene)
 
 # Set default value for the list of classes upon opening Blender, reloading the start-up file via the keys Ctrl N or opening any Blender file
 @persistent
 def onFileLoaded(scene):
-    setDefaultClassName(bpy.context.scene)
+    utils.set_default_class_name(bpy.context.scene)
 
 # When a render is made and saved in a file automatically render the annotations as well
 def onRenderWrite(scene):
@@ -295,7 +259,6 @@ classes = [
     BAT_OT_setup_bat_scene, 
     BAT_OT_remove_bat_scene, 
     BAT_OT_render_annotation, 
-    BAT_OT_render_animation, 
     BAT_OT_add_class, 
     BAT_OT_remove_class
     ]

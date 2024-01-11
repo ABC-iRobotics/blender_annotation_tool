@@ -1,3 +1,4 @@
+import os
 import bpy
 import numpy as np
 from enum import Enum
@@ -22,6 +23,21 @@ class OutputFormat(str, Enum):
 class ColorDepth(str, Enum):
     HALF = '16'
     FULL = '32'
+
+
+def set_default_class_name(scene: Scene) -> None:
+    '''
+    Default value setter for list of classes ('Background' class)
+
+    Args:
+        scene : Scene in which the change will be applied
+    '''
+    classes = scene.bat_properties.classification_classes
+    # set default value if the list of classes is empty
+    if not classes:
+        background_class = classes.add()
+        background_class.name = DEFAULT_CLASS_NAME
+        background_class.mask_color = (0.0,0.0,0.0,1.0)
 
 
 def instance_color_gen(base_color: list[float]) -> Iterator[list[float]]:
@@ -120,6 +136,7 @@ def apply_output_settings(scene: Scene, output_format: OutputFormat=OutputFormat
         scene : Scene to apply the output settings to
         output_format : Output file format
     '''
+    # Set output file format
     scene.render.image_settings.file_format = output_format
     scene.render.image_settings.color_mode = 'RGBA'
     match output_format:
@@ -128,8 +145,28 @@ def apply_output_settings(scene: Scene, output_format: OutputFormat=OutputFormat
             scene.render.image_settings.compression = 0
         case OutputFormat.OPEN_EXR:
             scene.render.image_settings.color_depth = ColorDepth.FULL
+
+    # Set output file path
+    if '.' in scene.render.filepath:
+        filepath = os.path.dirname(scene.render.filepath)
+    else:
+        filepath = scene.render.filepath
+    filepath += '/annotations/'
+    
+    scene.render.filepath = filepath
             
             
+def render_scene(scene: Scene) -> None:
+    '''
+    Render scene
+
+    Args:
+        scene : Scene to render
+    '''
+    render_filepath_temp = scene.render.filepath
+    scene.render.filepath = scene.render.frame_path(frame=scene.frame_current)
+    bpy.ops.render.render(write_still=scene.bat_properties.save_annotation, scene=scene.name)
+    scene.render.filepath = render_filepath_temp
 
 
 def render_segmentation_masks(scene, instance_color_gen, self):
