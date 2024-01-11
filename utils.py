@@ -15,6 +15,14 @@ class Pass_Enum(Enum):
     VECTOR = 'Vector'
     NORMAL = 'Normal'
 
+class OutputFormat(str, Enum):
+    PNG = 'PNG'
+    OPEN_EXR = 'OPEN_EXR'
+
+class ColorDepth(str, Enum):
+    HALF = '16'
+    FULL = '32'
+
 
 def instance_color_gen(base_color: list[float]) -> Iterator[list[float]]:
     '''
@@ -104,91 +112,22 @@ def make_mask_material(material_name: str) -> Material:
     return mask_material
 
 
-
-def setup_bat_scene(context: Context, bat_scene_name: str, report_func: Callable[[set[str], str], None]) -> None:
+def apply_output_settings(scene: Scene, output_format: OutputFormat=OutputFormat.PNG) -> None:
     '''
-    Set up a separate scene for BAT
-
-    All data is linked except for objects that are associated to classes
+    Apply output settings for scene
 
     Args:
-        context : Current context
-        bat_scene_name : Name for the scene BAT will use
-        report_func : Report function of operator to display errors
+        scene : Scene to apply the output settings to
+        output_format : Output file format
     '''
-    active_scene = context.scene
-
-    # Create the BAT scene if it does not exist yet
-    if bat_scene_name not in [s.name for s in bpy.data.scenes]:
-        bat_scene = active_scene.copy()
-        bat_scene.name = bat_scene_name
-    else:
-        bat_scene = bpy.data.scenes[bat_scene_name]
-
-    
-    add_empty_world(active_scene.world, bat_scene)
-
-    mask_material = make_mask_material(BAT_SEGMENTATION_MASK_MAT_NAME)
-
-    # Use the Cycles render engine
-    bat_scene.render.engine = 'CYCLES'
-    # Raw view transform so colors will be the same as in BAT
-    bat_scene.view_settings.view_transform = 'Raw'
-    # Disable anti aliasing
-    bat_scene.cycles.filter_width = 0.01
-    bat_scene.cycles.use_denoising = False
-
-    # Image output settings
-    bat_scene.render.image_settings.file_format = 'PNG'
-    bat_scene.render.image_settings.color_depth = '16'
-    bat_scene.render.image_settings.color_mode = 'RGBA'
-    bat_scene.render.image_settings.compression = 0
-
-    
-    # Unlink all collections and objects
-    for coll in bat_scene.collection.children:
-        bat_scene.collection.children.unlink(coll)
-    for obj in bat_scene.collection.objects:
-        bat_scene.collection.objects.unlink(obj)
-
-    bat_scene.collection.objects.link(active_scene.camera)
-        
-
-    # Link needed collections/objects to BAT scene
-    for classification_class in [c for c in bat_scene.bat_properties.classification_classes if c.name != DEFAULT_CLASS_NAME]:
-        # Get original collection and create a new one in the BAT scene for each
-        # classification class
-        orig_collection = bpy.data.collections.get(classification_class.objects)
-        if orig_collection is None:
-            # If the collection is deleted or renamed in the meantime
-            report_func({'ERROR'},'Could not find collection {}!'.format(classification_class.objects))
-            orig_collection = bpy.data.collections.get(classification_class.objects)
-        new_collection = bpy.data.collections.new(classification_class.name)
-        bat_scene.collection.children.link(new_collection)
-
-        class_instance_color_gen = instance_color_gen(list(classification_class.mask_color))
-
-        # Duplicate objects
-        for obj in orig_collection.objects:
-            obj_copy = obj.copy()
-            obj_copy.data = obj.data.copy()
-            new_collection.objects.link(obj_copy)
-
-            if obj_copy.data.materials:
-                obj_copy.data.materials[0] = mask_material
-            else:
-                obj_copy.data.materials.append(mask_material)
-        
-            if not classification_class.is_instances:
-                color = list(classification_class.mask_color)
-                obj_copy.color = color
-            elif classification_class.is_instances:
-                try:
-                    color = next(class_instance_color_gen)
-                    obj_copy.color = color
-                    
-                except StopIteration:
-                    report_func({'ERROR_INVALID_INPUT'}, 'Too many instances, not enough color codes!')
+    scene.render.image_settings.file_format = output_format
+    scene.render.image_settings.color_mode = 'RGBA'
+    match output_format:
+        case OutputFormat.PNG:
+            scene.render.image_settings.color_depth = ColorDepth.HALF
+            scene.render.image_settings.compression = 0
+        case OutputFormat.OPEN_EXR:
+            scene.render.image_settings.color_depth = ColorDepth.FULL
             
             
 
