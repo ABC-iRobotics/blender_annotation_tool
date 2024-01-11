@@ -16,7 +16,7 @@ class Pass_Enum(Enum):
     NORMAL = 'Normal'
 
 
-def instance_color_gen(base_color: tuple[float,float,float,float]) -> Iterator[tuple[float,float,float]]:
+def instance_color_gen(base_color: list[float]) -> Iterator[list[float]]:
     '''
     Make a generator for creating instance colors from a single base color
 
@@ -27,9 +27,8 @@ def instance_color_gen(base_color: tuple[float,float,float,float]) -> Iterator[t
         gen : A generator to generate new colors for new instances
     '''
     for i in range(255):
-        mask_color = list(base_color)
-        mask_color[3] = (i+1)/255
-        yield tuple(mask_color)
+        base_color[3] = (i+1)/255
+        yield base_color
     
 
 def find_parent_collection(root_collection: Collection, collection: Collection) -> Collection | None:
@@ -167,6 +166,8 @@ def setup_bat_scene(context: Context, bat_scene_name: str, report_func: Callable
         new_collection = bpy.data.collections.new(classification_class.name)
         bat_scene.collection.children.link(new_collection)
 
+        class_instance_color_gen = instance_color_gen(list(classification_class.mask_color))
+
         # Duplicate objects
         for obj in orig_collection.objects:
             obj_copy = obj.copy()
@@ -183,8 +184,8 @@ def setup_bat_scene(context: Context, bat_scene_name: str, report_func: Callable
                 obj_copy.color = color
             elif classification_class.is_instances:
                 try:
-                    color = next(classification_class.instance_color_gen)
-                    obj.color = color
+                    color = next(class_instance_color_gen)
+                    obj_copy.color = color
                     
                 except StopIteration:
                     report_func({'ERROR_INVALID_INPUT'}, 'Too many instances, not enough color codes!')
