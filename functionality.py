@@ -2,7 +2,7 @@ import bpy
 from bpy.app.handlers import persistent
 from . import utils
 
-from bpy.types import Context
+from bpy.types import Context, Event
 
 # -------------------------------
 # Operators
@@ -31,7 +31,7 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             bat_scene.name = utils.BAT_SCENE_NAME
 
         
-        # Add an empty world (no HDRI, no world lighting)
+        # Add an empty world (no HDRI, no world lighting ...)
         utils.add_empty_world(active_scene.world, bat_scene)
 
         # Create a material for segmentation masks
@@ -87,6 +87,7 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
         return {'FINISHED'}
 
 
+# Remove BAT scene
 class BAT_OT_remove_bat_scene(bpy.types.Operator):
     """Remove BAT scene"""
     bl_idname = 'bat.remove_bat_scene'
@@ -137,9 +138,6 @@ class BAT_OT_render_annotation(bpy.types.Operator):
         if not bat_scene is None:
             utils.render_scene(bat_scene)
 
-        # utils.get_annotations(active_scene)
-        # utils.render_segmentation_masks(active_scene, instance_color_gen, self)
-
         bpy.ops.bat.remove_bat_scene()
 
         return {'FINISHED'}
@@ -155,17 +153,23 @@ class BAT_OT_add_class(bpy.types.Operator):
     new_class_name: bpy.props.StringProperty(name='name',  default='')
 
 
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Add a new class to the list of classes
+
+        Args:
+            context : Current context
+        '''
         
         # If new class name is empty return with error
         if self.new_class_name == '':
             self.report({'ERROR_INVALID_INPUT'}, 'The class name must not be empty!')
-            return {'FINISHED'}
+            return {'CANCELLED'}
 
         # If new class name already exists return with warning
         if self.new_class_name in [c.name for c in context.scene.bat_properties.classification_classes]:
             self.report({'WARNING'}, 'The class name already exists')
-            return {'FINISHED'}
+            return {'CANCELLED'}
 
         # Add new class
         new_class = context.scene.bat_properties.classification_classes.add()
@@ -181,7 +185,14 @@ class BAT_OT_add_class(bpy.types.Operator):
 
         return {'FINISHED'}
     
-    def invoke(self, context, event):
+    def invoke(self, context: Context, event: Event) -> set[str]:
+        '''
+        Display "Add new class dialog box"
+
+        Args:
+            context : Current context
+            event : Event that triggered the invoke method
+        '''
         
         self.new_class_name = 'new class'
         
@@ -196,7 +207,13 @@ class BAT_OT_remove_class(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
 
-    def execute(self, context):
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Remove the current class from the list of classes
+
+        Args:
+            context : Current context
+        '''
         scene = context.scene
         index = scene.bat_properties.classification_classes.find(scene.bat_properties.current_class)
         

@@ -9,24 +9,12 @@ from bpy.types import Collection, Material, World, Scene
 
 DEFAULT_CLASS_NAME = 'Background'
 BAT_SCENE_NAME = 'BAT_Scene'
+BAT_VIEW_LAYER_NAME = 'BAT_ViewLayer'
 BAT_SEGMENTATION_MASK_MAT_NAME = 'BAT_segmentation_mask'
 
 
 # -------------------------------
 # Enums
-
-class DataPass(str, Enum):
-    '''
-    String Enum to store data passes
-
-    Keys:
-        DEPTH : Depth pass
-        VECTOR : Optical flow pass
-        NORMAL : Surface normal pass
-    '''
-    DEPTH = 'Depth'
-    VECTOR = 'Vector'
-    NORMAL = 'Normal'
 
 class OutputFormat(str, Enum):
     '''
@@ -151,6 +139,13 @@ def apply_render_settings(scene: Scene) -> None:
     Args:
         scene : Scene to apply the render settings to
     '''
+
+    # Create a new ViewLayer for BAT
+    bat_view_layer = scene.view_layers.new(BAT_VIEW_LAYER_NAME)
+    for view_layer in scene.view_layers:
+        if view_layer != bat_view_layer:
+            scene.view_layers.remove(view_layer)
+
     # Use the Cycles render engine
     scene.render.engine = 'CYCLES'
 
@@ -175,6 +170,14 @@ def apply_render_settings(scene: Scene) -> None:
 
     # Raw view transform so colors will be the same as set in BAT
     scene.view_settings.view_transform = 'Raw'
+
+    # Setup data passes
+    if scene.bat_properties.depth_map_generation:
+        bat_view_layer.use_pass_z = True
+    if scene.bat_properties.surface_normal_generation:
+        bat_view_layer.use_pass_normal = True
+    if scene.bat_properties.optical_flow_generation:
+        bat_view_layer.use_pass_vector = True
 
 
 def apply_output_settings(scene: Scene, output_format: OutputFormat=OutputFormat.PNG) -> None:
