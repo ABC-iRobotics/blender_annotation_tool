@@ -32,7 +32,7 @@ def register() -> None:
             logging.error(e)
 
 
-def unregister():
+def unregister() ->None:
     '''
     Unregister operators, properties, and UI elements
     '''

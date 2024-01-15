@@ -2,7 +2,7 @@ import bpy
 from bpy.app.handlers import persistent
 from . import utils
 
-from bpy.types import Context, Event
+from bpy.types import Context, Event, Scene
 
 # -------------------------------
 # Operators
@@ -20,6 +20,9 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
 
         Args:
             context : Current context
+
+        Returns:
+            status : Execution status
         '''
 
         active_scene = context.scene
@@ -100,6 +103,9 @@ class BAT_OT_remove_bat_scene(bpy.types.Operator):
 
         Args:
             context : Current context
+        
+        Returns:
+            status : Execution status
         '''
         bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
 
@@ -130,6 +136,9 @@ class BAT_OT_render_annotation(bpy.types.Operator):
 
         Args:
             context : Current context
+        
+        Returns:
+            status : Execution status
         '''
 
         bpy.ops.bat.setup_bat_scene()
@@ -159,6 +168,9 @@ class BAT_OT_add_class(bpy.types.Operator):
 
         Args:
             context : Current context
+        
+        Returns:
+            status : Execution status
         '''
         
         # If new class name is empty return with error
@@ -192,6 +204,9 @@ class BAT_OT_add_class(bpy.types.Operator):
         Args:
             context : Current context
             event : Event that triggered the invoke method
+        
+        Returns:
+            status : Execution status
         '''
         
         self.new_class_name = 'new class'
@@ -206,13 +221,15 @@ class BAT_OT_remove_class(bpy.types.Operator):
     bl_label = "Remove current class"
     bl_options = {'REGISTER'}
 
-
     def execute(self, context: Context) -> set[str]:
         '''
         Remove the current class from the list of classes
 
         Args:
             context : Current context
+        
+        Returns:
+            status : Execution status
         '''
         scene = context.scene
         index = scene.bat_properties.classification_classes.find(scene.bat_properties.current_class)
@@ -229,32 +246,25 @@ class BAT_OT_remove_class(bpy.types.Operator):
 # Handlers
 
 # Set default value for the list of classes upon registering the addon
-def onRegister(scene):
+def onRegister(scene: Scene) -> None:
+    '''
+    Setup default class upon registering the addon
+
+    Args:
+        scene : Current scene
+    '''
     utils.set_default_class_name(scene)
 
 # Set default value for the list of classes upon opening Blender, reloading the start-up file via the keys Ctrl N or opening any Blender file
 @persistent
-def onFileLoaded(scene):
-    utils.set_default_class_name(bpy.context.scene)
+def onFileLoaded(scene: Scene) -> None:
+    '''
+    Setup default class upon loading a new Blender file
 
-# When a render is made and saved in a file automatically render the annotations as well
-def onRenderWrite(scene):
-    if scene.bat_properties.save_annotation:
-        props = bpy.context.window_manager.operator_properties_last('render.opengl')
-        props.write_still = True
-        override = bpy.context.copy()  # The context has to be overrode because in the handler the context in incomplete
-        for window in bpy.context.window_manager.windows:
-            for area in window.screen.areas:
-                if area.type == 'VIEW_3D':
-                    override['area'] = area
-                    override['window'] = window
-                    override['screen'] = window.screen
-                    for region in area.regions:
-                        if region.type == 'WINDOW':
-                            override['region'] = region
-                            break
-              
-        bpy.ops.render.bat_render_annotation(override)
+    Args:
+        scene : Current scene 
+    '''
+    utils.set_default_class_name(bpy.context.scene)
 
 
 # -------------------------------
@@ -268,23 +278,24 @@ classes = [
     BAT_OT_remove_class
     ]
 
-def register():
-    # Add handlers
+def register() -> None:
+    '''
+    Register operators and handlers
+    '''
     bpy.app.handlers.depsgraph_update_pre.append(onRegister)
     bpy.app.handlers.load_post.append(onFileLoaded)
-    bpy.app.handlers.render_write.append(onRenderWrite)
 
     for cls in classes:
         bpy.utils.register_class(cls)
 
-def unregister():
-    # Remove handlers
+def unregister() -> None:
+    '''
+    Unregister operators and handlers
+    '''
     if onRegister in bpy.app.handlers.depsgraph_update_pre:
         bpy.app.handlers.depsgraph_update_pre.remove(onRegister)
     if onFileLoaded in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(onFileLoaded)
-    if onRenderWrite in bpy.app.handlers.render_write:
-        bpy.app.handlers.render_write.remove(onRenderWrite)
     
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
