@@ -31,33 +31,24 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             bat_scene.name = utils.BAT_SCENE_NAME
 
         
+        # Add an empty world (no HDRI, no world lighting)
         utils.add_empty_world(active_scene.world, bat_scene)
 
+        # Create a material for segmentation masks
         mask_material = utils.make_mask_material(utils.BAT_SEGMENTATION_MASK_MAT_NAME)
 
-        # Use the Cycles render engine
-        bat_scene.render.engine = 'CYCLES'
-        bat_scene.cycles.samples = 2
-        # Raw view transform so colors will be the same as in BAT
-        bat_scene.view_settings.view_transform = 'Raw'
-        # Disable anti aliasing and denoising
-        bat_scene.cycles.filter_width = 0.01
-        bat_scene.cycles.use_denoising = False
+        # Render settings
+        utils.apply_render_settings(bat_scene)
 
-        # Image output settings
-        utils.apply_output_settings(bat_scene, utils.OutputFormat.PNG)
+        # Image output settings (we use OpenEXR Multilayer)
+        utils.apply_output_settings(bat_scene, utils.OutputFormat.OPEN_EXR)
 
-        
-        # Unlink all collections and objects
+
+        # Unlink all collections and objects from BAT scene
         for coll in bat_scene.collection.children:
             bat_scene.collection.children.unlink(coll)
         for obj in bat_scene.collection.objects:
             bat_scene.collection.objects.unlink(obj)
-
-        # Add a camera
-        cam_copy = active_scene.camera.copy()
-        bat_scene.collection.objects.link(cam_copy)
-        bat_scene.camera = cam_copy
             
 
         # Link needed collections/objects to BAT scene
@@ -72,29 +63,26 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             new_collection = bpy.data.collections.new(classification_class.name)
             bat_scene.collection.children.link(new_collection)
 
-            class_instance_color_gen = utils.instance_color_gen(list(classification_class.mask_color))
-
             # Duplicate objects
-            for obj in orig_collection.objects:
+            for i, obj in enumerate(orig_collection.objects):
                 obj_copy = obj.copy()
                 obj_copy.data = obj.data.copy()
+                obj_copy.pass_index = 100  # Pass index controls emission strength in the mask material (>100 for visualization)
                 new_collection.objects.link(obj_copy)
 
+                # Assign segmentation mask material
                 if obj_copy.data.materials:
                     obj_copy.data.materials[0] = mask_material
                 else:
                     obj_copy.data.materials.append(mask_material)
             
-                if not classification_class.is_instances:
-                    color = list(classification_class.mask_color)
-                    obj_copy.color = color
-                else:
-                    try:
-                        color = next(class_instance_color_gen)
-                        obj_copy.color = color
-                        
-                    except StopIteration:
-                        self.report({'ERROR_INVALID_INPUT'}, 'Too many instances, not enough color codes!')
+                # Set object color
+                color = list(classification_class.mask_color)
+                obj_copy.color = color
+
+                # For instances increase emission strength in the material so they can be distinguished
+                if classification_class.is_instances:
+                    obj_copy.pass_index += i
 
         return {'FINISHED'}
 
@@ -213,7 +201,7 @@ class BAT_OT_remove_class(bpy.types.Operator):
         index = scene.bat_properties.classification_classes.find(scene.bat_properties.current_class)
         
         # Do not allow to delete the default class and to empty the list of classes
-        if len(scene.bat_properties.classification_classes) > 0 and scene.bat_properties.current_class != DEFAULT_CLASS_NAME and index >= 1:
+        if len(scene.bat_properties.classification_classes) > 0 and scene.bat_properties.current_class != utils.DEFAULT_CLASS_NAME and index >= 1:
             scene.bat_properties.classification_classes.remove(index)
             scene.bat_properties.current_class = scene.bat_properties.classification_classes[index-1].name
 

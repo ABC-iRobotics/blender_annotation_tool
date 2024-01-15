@@ -18,7 +18,7 @@ class Pass_Enum(Enum):
 
 class OutputFormat(str, Enum):
     PNG = 'PNG'
-    OPEN_EXR = 'OPEN_EXR'
+    OPEN_EXR = 'OPEN_EXR_MULTILAYER'
 
 class ColorDepth(str, Enum):
     HALF = '16'
@@ -38,21 +38,6 @@ def set_default_class_name(scene: Scene) -> None:
         background_class = classes.add()
         background_class.name = DEFAULT_CLASS_NAME
         background_class.mask_color = (0.0,0.0,0.0,1.0)
-
-
-def instance_color_gen(base_color: list[float]) -> Iterator[list[float]]:
-    '''
-    Make a generator for creating instance colors from a single base color
-
-    Args:
-        base_color : Base color (RGB) to initiate the generator with
-
-    Returns:
-        gen : A generator to generate new colors for new instances
-    '''
-    for i in range(255):
-        base_color[3] = (i+1)/255
-        yield base_color
     
 
 def find_parent_collection(root_collection: Collection, collection: Collection) -> Collection | None:
@@ -122,10 +107,44 @@ def make_mask_material(material_name: str) -> Material:
 
     # Create links
     mask_material.node_tree.links.new(emission_shader_node.inputs['Color'], obj_info_node.outputs['Color'])
+    mask_material.node_tree.links.new(emission_shader_node.inputs['Strength'], obj_info_node.outputs['Object Index'])
     mask_material.node_tree.links.new(matrial_output_node.inputs['Surface'], emission_shader_node.outputs['Emission'])
-    emission_shader_node.inputs['Strength'].default_value = 100
+    # emission_shader_node.inputs['Strength'].default_value = 100
 
     return mask_material
+
+
+def apply_render_settings(scene: Scene) -> None:
+    '''
+    Apply render settings for scene for segmentation mask rendering
+
+    Args:
+        scene : Scene to apply the render settings to
+    '''
+    # Use the Cycles render engine
+    scene.render.engine = 'CYCLES'
+
+    # Use transparent background, so alpha channel can be used for binary segmentation
+    scene.render.film_transparent = True
+
+    # Reduce samples to 1 to speed up rendering and avoid color mixing
+    scene.cycles.samples = 1
+
+    # Disable anti aliasing and denoising (preserve sharpe edges of masks)
+    scene.cycles.filter_width = 0.01
+    scene.cycles.use_denoising = False
+
+    # Set max bounces for light paths (only diffuse is needed)
+    # We use emission, so light hitting the camera directly is important
+    scene.cycles.max_bounces = 1
+    scene.cycles.diffuse_bounces = 1
+    scene.cycles.glossy_bounces = 0
+    scene.cycles.transmission_bounces = 0
+    scene.cycles.volume_bounces = 0
+    scene.cycles.transparent_max_bounces = 0
+
+    # Raw view transform so colors will be the same as set in BAT
+    scene.view_settings.view_transform = 'Raw'
 
 
 def apply_output_settings(scene: Scene, output_format: OutputFormat=OutputFormat.PNG) -> None:
