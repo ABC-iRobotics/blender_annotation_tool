@@ -172,6 +172,8 @@ def apply_render_settings(scene: Scene) -> None:
     scene.view_settings.view_transform = 'Raw'
 
     # Setup data passes
+    bat_view_layer.use_pass_object_index = True  # Instance ID
+    bat_view_layer.use_pass_material_index = True  # Class ID
     if scene.bat_properties.depth_map_generation:
         bat_view_layer.use_pass_z = True
     if scene.bat_properties.surface_normal_generation:

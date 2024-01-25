@@ -39,8 +39,6 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
         # Add an empty world (no HDRI, no world lighting ...)
         utils.add_empty_world(active_scene.world, bat_scene)
 
-        # Create a material for segmentation masks
-        mask_material = utils.make_mask_material(utils.BAT_SEGMENTATION_MASK_MAT_NAME)
 
         # Render settings
         utils.apply_render_settings(bat_scene)
@@ -57,7 +55,12 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             
 
         # Link needed collections/objects to BAT scene
-        for classification_class in [c for c in bat_scene.bat_properties.classification_classes if c.name != utils.DEFAULT_CLASS_NAME]:
+        for class_index, classification_class in enumerate([c for c in bat_scene.bat_properties.classification_classes if c.name != utils.DEFAULT_CLASS_NAME]):
+
+            # Create a material for segmentation masks
+            mask_material = utils.make_mask_material(utils.BAT_SEGMENTATION_MASK_MAT_NAME+'_'+classification_class.name)
+            mask_material.pass_index = class_index+1
+
             # Get original collection and create a new one in the BAT scene for each
             # classification class
             orig_collection = bpy.data.collections.get(classification_class.objects)
