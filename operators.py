@@ -69,7 +69,8 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             bat_scene.collection.children.link(new_collection)
 
             # Duplicate objects
-            for i, obj in enumerate(orig_collection.objects):
+            for i, obj in enumerate([o for o in orig_collection.objects if hasattr(o.data, 'materials')]):
+                # Only add objects to BAT scene that have materials
                 obj_copy = obj.copy()
                 obj_copy.data = obj.data.copy()
                 obj_copy.pass_index = 100  # Pass index controls emission strength in the mask material (>100 for visualization)
