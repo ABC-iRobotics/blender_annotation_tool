@@ -224,3 +224,7 @@ def render_scene(scene: Scene) -> None:
 
     # Reset output path
     scene.render.filepath = render_filepath_temp
+
+    # Export class info if needed
+    if scene.bat_properties.export_class_info:
+        bpy.ops.bat.export_class_info()

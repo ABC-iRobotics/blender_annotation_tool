@@ -170,7 +170,13 @@ class BAT_Properties(bpy.types.PropertyGroup):
     save_annotation: bpy.props.BoolProperty(
         name='Save annotations',
         description="Save the annotations whenever a render is made",
-        default=True
+        default=False
+    )
+
+    export_class_info: bpy.props.BoolProperty(
+        name='Export class info',
+        description="Export class name and ID association to JSON",
+        default=False
     )
 
 

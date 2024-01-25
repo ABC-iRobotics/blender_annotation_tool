@@ -1,3 +1,5 @@
+import os
+import json
 import bpy
 from bpy.app.handlers import persistent
 from . import utils
@@ -152,6 +154,35 @@ class BAT_OT_render_annotation(bpy.types.Operator):
         return {'FINISHED'}
 
 
+# Export class info
+class BAT_OT_export_class_info(bpy.types.Operator):
+    """Export class info"""
+    bl_idname = 'bat.export_class_info'
+    bl_label = 'Export class info'
+    bl_options = {'REGISTER'}
+
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Export information on classes as a JSON
+
+        Args:
+            context : Current context
+        
+        Returns:
+            status : Execution status
+        '''
+
+        class_info = {}
+        bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
+        if not bat_scene is None:
+            for i, coll in enumerate(bat_scene.collection.children):
+                class_info[coll.name] = i+1  ## Class 0 is the "Background" class
+            path = os.path.join(os.path.split(bat_scene.render.frame_path(frame=bat_scene.frame_current))[0],'class_info.json')
+            with open(path, 'w') as f:
+                f.write(json.dumps(class_info))
+        return {'FINISHED'}
+
+
 # Add new class
 class BAT_OT_add_class(bpy.types.Operator):
     """Add new class to the list of classes"""
@@ -273,7 +304,8 @@ def onFileLoaded(scene: Scene) -> None:
 classes = [
     BAT_OT_setup_bat_scene, 
     BAT_OT_remove_bat_scene, 
-    BAT_OT_render_annotation, 
+    BAT_OT_render_annotation,
+    BAT_OT_export_class_info, 
     BAT_OT_add_class, 
     BAT_OT_remove_class
     ]

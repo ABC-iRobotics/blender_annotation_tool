@@ -70,6 +70,8 @@ class BAT_PT_main_panel(bpy.types.Panel):
         row = layout.row()
         row.prop(context.scene.bat_properties, 'save_annotation', text='Save annotations')
         row = layout.row()
+        row.prop(context.scene.bat_properties, 'export_class_info', text='Export class info')
+        row = layout.row()
         row.operator('render.bat_render_annotation', text='Render annotation', icon='RENDER_STILL')
 
 
