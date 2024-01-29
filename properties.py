@@ -1,48 +1,96 @@
 import bpy
+from bpy.types import Context
 
 # -------------------------------
-# Utility functions
+# Callback functions
 
-# Synchronize elements of Enum for current class with the list of classes
-def populate_classes(self, context):
+def populate_classes(self, context: Context) -> list[tuple[str,str,str]]:
+    '''
+    Set items for "Current Class Enum" given the list of classes
+
+    Args:
+        context : Current context
+
+    Returns:
+        enum_items : An item of the Current Class Enum
+    '''
     
-    Enum_items = [] 
+    enum_items = [] 
 
-    for classification_class in context.scene.bat_properties.classification_classes:
-        
+    for classification_class in context.scene.bat_properties.classification_classes:        
         name = classification_class.name
-        item = (name, name, name)
+        item = (name, name, name)  # (ID, name, value)
+        enum_items.append(item)
         
-        Enum_items.append(item)
-        
-    return Enum_items
+    return enum_items
 
-# Update values of current class params when the current class is changed
-def update_current_class_params(self, context):
+
+def update_current_class_params(self, context: Context) -> None:
+    '''
+    Update values of current class params when the current class is changed
+
+    Args:
+        context : Current context
+    '''
+    # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
+
+    # Set current class params
     context.scene.bat_properties.current_class_color = context.scene.bat_properties.classification_classes[index].mask_color
     context.scene.bat_properties.current_class_objects = context.scene.bat_properties.classification_classes[index].objects
     context.scene.bat_properties.current_class_is_instances = context.scene.bat_properties.classification_classes[index].is_instances
 
-# Update color of class in the list of classes if the color for the current class is changed
-def update_classification_class_color(self, context):
+
+def update_classification_class_color(self, context: Context) -> None:
+    '''
+    Update color of class in the list of classes if the color for the current class is changed
+
+    Args:
+        context : Current context
+    '''
+    # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
+
+    # Set color of current class
     context.scene.bat_properties.classification_classes[index].mask_color = context.scene.bat_properties.current_class_color
 
-# Update associated collection of class in the list of classes if the associated collection for the current class is changed
-def update_classification_class_objects(self, context):
+
+def update_classification_class_objects(self, context: Context) -> None:
+    '''
+    Update associated collection of class in the list of classes if the associated collection for the current class is changed
+
+    Args:
+        context : Current context
+    '''
+    # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
+
+    # Set collection for current class
     context.scene.bat_properties.classification_classes[index].objects = context.scene.bat_properties.current_class_objects
 
-# Update instance segmentation setup of class in the list of classes if the instance segmentation setup for the current class is changed
-def update_classification_class_is_instances(self, context):
+
+def update_classification_class_is_instances(self, context: Context) -> None:
+    '''
+    Update instance segmentation setup of class in the list of classes if the instance segmentation setup for the current class is changed
+
+    Args:
+        context : Current context
+    '''
+    # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
+
+    # Set instance segmentation on or off for current class
     context.scene.bat_properties.classification_classes[index].is_instances = context.scene.bat_properties.current_class_is_instances
+
 
 # -------------------------------
 # Properties for describing a single class
 
 class BAT_ClassificationClass(bpy.types.PropertyGroup):
+    '''
+    Property group describing a single classification class
+    '''
+
     name: bpy.props.StringProperty(
         name="class_name",
         description="Identifier for the class"
@@ -50,7 +98,8 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
     mask_color: bpy.props.FloatVectorProperty(
         name="object_color",
         subtype='COLOR',
-        default=(1.0, 1.0, 1.0),
+        size=4,
+        default=(1.0, 1.0, 1.0, 1.0),
         min=0.0, max=1.0,
         description="Color used for representing the class on the annotated image"
     )
@@ -60,7 +109,7 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
     )
     is_instances: bpy.props.BoolProperty(
         name="is_instances",
-        description="If true the objects in the associated collection will be handled as instances (separate colors in annotation)"
+        description="If true the objects in the associated collection will be handled as instances"
     )
 
 
@@ -68,8 +117,11 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
 # Properties for visualisation (currently selected class)
 
 class BAT_Properties(bpy.types.PropertyGroup):
+    '''
+    Property group for visualizing/editing class params
+    '''
 
-    # Collection of classes (list of classes)
+    # Collection of all classes (list of classes)
     classification_classes: bpy.props.CollectionProperty(type=BAT_ClassificationClass)
 
     # The currently selected class
@@ -79,7 +131,8 @@ class BAT_Properties(bpy.types.PropertyGroup):
     current_class_color: bpy.props.FloatVectorProperty(
         name="Mask color",
         subtype='COLOR',
-        default=(0.0, 0.0, 0.0),
+        size=4,
+        default=(0.0, 0.0, 0.0, 1.0),
         min=0.0, max=1.0,
         description="Color value of the current class for the segmentation mask",
         update=update_classification_class_color
@@ -95,27 +148,35 @@ class BAT_Properties(bpy.types.PropertyGroup):
         default=False,
         update=update_classification_class_is_instances
     )
+
+    # Data passes
     depth_map_generation: bpy.props.BoolProperty(
         name="generate depth map?",
-        description="Generate the depth map of this class",
+        description="Generate the depth map",
         default=False
     )
     surface_normal_generation: bpy.props.BoolProperty(
         name="generate surface normal?",
-        description="Generate the surface normal of this class",
+        description="Generate the surface normals",
         default=False
     )
     optical_flow_generation: bpy.props.BoolProperty(
         name="generate optical flow?",
-        description="Generate the optical flow of this class",
+        description="Generate the optical flow",
         default=False
     )
 
     # Output properties
     save_annotation: bpy.props.BoolProperty(
         name='Save annotations',
-        description="Save the annotations whenever a render made",
-        default=True
+        description="Save the annotations whenever a render is made",
+        default=False
+    )
+
+    export_class_info: bpy.props.BoolProperty(
+        name='Export class info',
+        description="Export class name and ID association to JSON",
+        default=False
     )
 
 
@@ -124,12 +185,18 @@ class BAT_Properties(bpy.types.PropertyGroup):
 
 classes = [BAT_ClassificationClass, BAT_Properties]
 
-def register():
+def register() -> None:
+    '''
+    Register properties
+    '''
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.bat_properties = bpy.props.PointerProperty(type=BAT_Properties)
 
-def unregister():
+def unregister() -> None:
+    '''
+    Unregister properties
+    '''
     del bpy.types.Scene.bat_properties
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
