@@ -3,6 +3,7 @@ import json
 import bpy
 from bpy.app.handlers import persistent
 from . import utils
+import numpy as np
 
 from bpy.types import Context, Event, Scene
 
@@ -187,6 +188,95 @@ class BAT_OT_export_class_info(bpy.types.Operator):
         return {'FINISHED'}
 
 
+# Generate distortion map for simulating lens distortions
+class BAT_OT_generate_distortion_map(bpy.types.Operator):
+    """Generate distortion map"""
+    bl_idname = 'bat.generate_distortion_map'
+    bl_label = 'Generate distortion map'
+    bl_options = {'REGISTER'}
+
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Generate an image that holds the mapping from distorted pixel coordinates to original (undistorted) pixel coordinates
+
+        Args:
+            context : Current context
+        
+        Returns:
+            status : Execution status
+        '''
+
+        # Get image parameters
+        scene = context.scene
+        cam = scene.bat_properties.camera
+        width = int(scene.render.resolution_x * (scene.render.resolution_percentage/100))
+        height = int(scene.render.resolution_y * (scene.render.resolution_percentage/100))
+
+        upscale_factor = 2  # Used for upscaling to achieve subpixel sampling and to avoid missing values in the map
+
+        # Get camera parameters
+        intr = [cam.fx,cam.fy,cam.px,cam.py]
+        distort = [cam.p1,cam.p2,cam.k1,cam.k2,cam.k3,cam.k4]
+
+        # Generate distorion map
+        distortion_map = utils.generate_inverse_distortion_map(width, height, intr, distort, upscale_factor)
+        distortion_map = np.append(distortion_map, np.zeros((height,width,2)), axis=2)
+
+        # Save distortion map as image
+        if not 'DistortionMap' in bpy.data.images:
+            dist_map_img = bpy.data.images.new('DistortionMap', width, height, alpha=True, float_buffer=True, is_data=True)
+        else:
+            dist_map_img = bpy.data.images['DistortionMap']
+        dist_map_img.pixels = distortion_map.flatten()
+
+        return {'FINISHED'}
+
+
+# Distort image
+class BAT_OT_distort_image(bpy.types.Operator):
+    """Distort Image"""
+    bl_idname = 'bat.distort_image'
+    bl_label = 'Distort Image'
+    bl_options = {'REGISTER'}
+
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Distort Image in the "Viewer Node"
+
+        Args:
+            context : Current context
+        
+        Returns:
+            status : Execution status
+        '''
+
+        # Read distortion map
+        w, h = bpy.data.images['DistortionMap'].size
+        dmap = np.array(bpy.data.images['DistortionMap'].pixels[:], dtype=np.float32)
+        dmap = np.reshape(dmap, (h, w, 4))[:,:,:]
+        ys = dmap[:,:,0].flatten().astype(int)
+        xs = dmap[:,:,1].flatten().astype(int)
+
+        # Read image to be distorted
+        viewer = bpy.data.images['Viewer Node']
+        w, h = viewer.size
+        img = np.array(viewer.pixels[:], dtype=np.float32)
+        img = np.reshape(img, (h, w, 4))[:,:,:]
+        img = img[:,:,0:4]
+
+        # Distort image
+        dimg = np.reshape(img[ys,xs],(h,w,4))
+
+        # Save it in an image
+        if not 'Distorted Image' in bpy.data.images:
+            dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
+        else:
+            dist_img = bpy.data.images['Distorted Image']
+        dist_img.pixels = dimg.flatten()
+
+        return {'FINISHED'}
+
+
 # Add new class
 class BAT_OT_add_class(bpy.types.Operator):
     """Add new class to the list of classes"""
@@ -309,7 +399,9 @@ classes = [
     BAT_OT_setup_bat_scene, 
     BAT_OT_remove_bat_scene, 
     BAT_OT_render_annotation,
-    BAT_OT_export_class_info, 
+    BAT_OT_export_class_info,
+    BAT_OT_generate_distortion_map,
+    BAT_OT_distort_image,
     BAT_OT_add_class, 
     BAT_OT_remove_class
     ]

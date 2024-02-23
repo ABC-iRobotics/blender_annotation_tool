@@ -75,10 +75,81 @@ class BAT_PT_main_panel(bpy.types.Panel):
         row.operator('render.bat_render_annotation', text='Render annotation', icon='RENDER_STILL')
 
 
+
+# Sub-panel for camera calibration in and output
+class BAT_PT_camera_panel(bpy.types.Panel):
+    """BAT Camera"""
+    bl_idname = 'VIEW_3D_PT_BAT_Camera'
+    bl_label = 'BAT Camera'
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'BAT'
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context: Context) -> None:
+        '''
+        Draw BAT Camera panel
+
+        Args:
+            context : Current context
+        '''
+
+        layout = self.layout
+        row = layout.row()
+        row.prop(context.scene.bat_properties.camera, 'sensor_width', text='Sensor Width')
+
+        # -------------------------------
+        # Intrinsic parameters
+        box = layout.box()
+        box.label(text='Intrinsic parameters')
+        row = box.row(align=True)
+        row.label(text='Focal Length X')
+        row.prop(context.scene.bat_properties.camera, 'fx', text='')
+        row = box.row(align=True)
+        row.label(text='Focal Length Y')
+        row.prop(context.scene.bat_properties.camera, 'fy', text='')
+        row = box.row(align=True)
+        row.label(text='Optical Center X')
+        row.prop(context.scene.bat_properties.camera, 'px', text='')
+        row = box.row(align=True)
+        row.label(text='Optical Center Y')
+        row.prop(context.scene.bat_properties.camera, 'py', text='')
+
+        # -------------------------------
+        # Lens distortion parameters
+        box = layout.box()
+        box.label(text='Lens Distortion')
+        row = box.row(align=True)
+        row.label(text='p1')
+        row.prop(context.scene.bat_properties.camera, 'p1', text='')
+        row = box.row(align=True)
+        row.label(text='p2')
+        row.prop(context.scene.bat_properties.camera, 'p2', text='')
+        box.row().separator()
+        row = box.row(align=True)
+        row.label(text='k1')
+        row.prop(context.scene.bat_properties.camera, 'k1', text='')
+        row = box.row(align=True)
+        row.label(text='k2')
+        row.prop(context.scene.bat_properties.camera, 'k2', text='')
+        row = box.row(align=True)
+        row.label(text='k3')
+        row.prop(context.scene.bat_properties.camera, 'k3', text='')
+        row = box.row(align=True)
+        row.label(text='k4')
+        row.prop(context.scene.bat_properties.camera, 'k4', text='')
+
+        # -------------------------------
+        # Create/Update distortion map
+        layout.row().separator()
+        row = layout.row()
+        row.operator('bat.generate_distortion_map', text='Create/Update Distortion Map', icon='IMAGE_DATA')
+
+
 # -------------------------------
 # Register/Unregister
 
-classes = [BAT_PT_main_panel]
+classes = [BAT_PT_main_panel, BAT_PT_camera_panel]
 
 def register() -> None:
     '''

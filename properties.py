@@ -86,6 +86,66 @@ def update_classification_class_is_instances(self, context: Context) -> None:
 # -------------------------------
 # Properties for describing a single class
 
+class BAT_Camera(bpy.types.PropertyGroup):
+    '''
+    Property group describing a camera
+    '''
+
+    sensor_width: bpy.props.FloatProperty(
+        name="sensor_width",
+        description="Width of the CCD sensor in millimeters",
+        min = 0,
+        soft_min = 0,
+    )
+
+    # Intrinsics
+    fx: bpy.props.FloatProperty(
+        name="fx",
+        description="Focal length X (in pixel units)",
+    )
+    fy: bpy.props.FloatProperty(
+        name="fy",
+        description="Focal length Y (in pixel units)",
+    )
+    px: bpy.props.FloatProperty(
+        name="px",
+        description="Optical Center X (in pixel units)",
+    )
+    py: bpy.props.FloatProperty(
+        name="py",
+        description="Optical Center Y (in pixel units)",
+    )
+
+    # Lens distortion
+    p1: bpy.props.FloatProperty(
+        name="p1",
+        description="Lens distortion p1 parameter",
+    )
+    p2: bpy.props.FloatProperty(
+        name="p2",
+        description="Lens distortion p2 parameter",
+    )
+    k1: bpy.props.FloatProperty(
+        name="k1",
+        description="Lens distortion k1 parameter",
+    )
+    k2: bpy.props.FloatProperty(
+        name="k2",
+        description="Lens distortion k2 parameter",
+    )
+    k3: bpy.props.FloatProperty(
+        name="k3",
+        description="Lens distortion k3 parameter",
+    )
+    k4: bpy.props.FloatProperty(
+        name="k4",
+        description="Lens distortion k4 parameter",
+    )
+
+
+# -------------------------------
+# Properties for describing a single class
+
 class BAT_ClassificationClass(bpy.types.PropertyGroup):
     '''
     Property group describing a single classification class
@@ -179,11 +239,14 @@ class BAT_Properties(bpy.types.PropertyGroup):
         default=False
     )
 
+    # Camera properties
+    camera: bpy.props.PointerProperty(type=BAT_Camera)
+
 
 # -------------------------------
 # Register/Unregister
 
-classes = [BAT_ClassificationClass, BAT_Properties]
+classes = [BAT_Camera, BAT_ClassificationClass, BAT_Properties]
 
 def register() -> None:
     '''
