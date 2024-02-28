@@ -261,21 +261,22 @@ class BAT_OT_distort_image(bpy.types.Operator):
             xs = dmap[:,:,1].flatten().astype(int)
 
             # Read image to be distorted
-            viewer = bpy.data.images['Viewer Node']
-            w, h = viewer.size
-            img = np.array(viewer.pixels[:], dtype=np.float32)
-            img = np.reshape(img, (h, w, 4))[:,:,:]
-            img = img[:,:,0:4]
+            viewer = bpy.data.images.get('Viewer Node')
+            if not viewer is None:
+                w, h = viewer.size
+                img = np.array(viewer.pixels[:], dtype=np.float32)
+                img = np.reshape(img, (h, w, 4))[:,:,:]
+                img = img[:,:,0:4]
 
-            # Distort image
-            dimg = np.reshape(img[ys,xs],(h,w,4))
+                # Distort image
+                dimg = np.reshape(img[ys,xs],(h,w,4))
 
-            # Save it in an image
-            if not 'Distorted Image' in bpy.data.images:
-                dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
-            else:
-                dist_img = bpy.data.images['Distorted Image']
-            dist_img.pixels = dimg.flatten()
+                # Save it in an image
+                if not 'Distorted Image' in bpy.data.images:
+                    dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
+                else:
+                    dist_img = bpy.data.images['Distorted Image']
+                dist_img.pixels = dimg.flatten()
 
         return {'FINISHED'}
 
