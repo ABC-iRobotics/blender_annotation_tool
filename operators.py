@@ -183,7 +183,7 @@ class BAT_OT_export_class_info(bpy.types.Operator):
         if not bat_scene is None:
             for classification_class in bat_scene.bat_properties.classification_classes:
                 mask_material = bpy.data.materials.get(utils.BAT_SEGMENTATION_MASK_MAT_NAME+'_'+classification_class.name)
-                if mask_material:
+                if not mask_material is None:
                     class_info[mask_material.pass_index] = classification_class.name
             bat_scene.render.stamp_note_text = json.dumps(class_info)
         return {'FINISHED'}
@@ -252,28 +252,30 @@ class BAT_OT_distort_image(bpy.types.Operator):
         '''
 
         # Read distortion map
-        w, h = bpy.data.images['DistortionMap'].size
-        dmap = np.array(bpy.data.images['DistortionMap'].pixels[:], dtype=np.float32)
-        dmap = np.reshape(dmap, (h, w, 4))[:,:,:]
-        ys = dmap[:,:,0].flatten().astype(int)
-        xs = dmap[:,:,1].flatten().astype(int)
+        dist_map_img = bpy.data.images.get('DistortionMap')
+        if not dist_map_img is None:
+            w, h = bpy.data.images['DistortionMap'].size
+            dmap = np.array(bpy.data.images['DistortionMap'].pixels[:], dtype=np.float32)
+            dmap = np.reshape(dmap, (h, w, 4))[:,:,:]
+            ys = dmap[:,:,0].flatten().astype(int)
+            xs = dmap[:,:,1].flatten().astype(int)
 
-        # Read image to be distorted
-        viewer = bpy.data.images['Viewer Node']
-        w, h = viewer.size
-        img = np.array(viewer.pixels[:], dtype=np.float32)
-        img = np.reshape(img, (h, w, 4))[:,:,:]
-        img = img[:,:,0:4]
+            # Read image to be distorted
+            viewer = bpy.data.images['Viewer Node']
+            w, h = viewer.size
+            img = np.array(viewer.pixels[:], dtype=np.float32)
+            img = np.reshape(img, (h, w, 4))[:,:,:]
+            img = img[:,:,0:4]
 
-        # Distort image
-        dimg = np.reshape(img[ys,xs],(h,w,4))
+            # Distort image
+            dimg = np.reshape(img[ys,xs],(h,w,4))
 
-        # Save it in an image
-        if not 'Distorted Image' in bpy.data.images:
-            dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
-        else:
-            dist_img = bpy.data.images['Distorted Image']
-        dist_img.pixels = dimg.flatten()
+            # Save it in an image
+            if not 'Distorted Image' in bpy.data.images:
+                dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
+            else:
+                dist_img = bpy.data.images['Distorted Image']
+            dist_img.pixels = dimg.flatten()
 
         return {'FINISHED'}
 
