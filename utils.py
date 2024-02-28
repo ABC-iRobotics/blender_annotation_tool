@@ -156,6 +156,9 @@ def apply_render_settings(scene: Scene) -> None:
     # Reduce samples to 1 to speed up rendering and avoid color mixing
     scene.cycles.samples = 1
 
+    # Add note to render output metadata
+    scene.render.use_stamp_note = True
+
     # Disable anti aliasing and denoising (preserve sharpe edges of masks)
     scene.cycles.filter_width = 0.01
     scene.cycles.use_denoising = False
@@ -222,15 +225,16 @@ def render_scene(scene: Scene) -> None:
     render_filepath_temp = scene.render.filepath
     scene.render.filepath = scene.render.frame_path(frame=scene.frame_current)
 
+    # Export class info if needed
+    if scene.bat_properties.export_class_info:
+        bpy.ops.bat.export_class_info()
+        
     # Render image
     bpy.ops.render.render(write_still=scene.bat_properties.save_annotation, scene=scene.name)
 
     # Reset output path
     scene.render.filepath = render_filepath_temp
 
-    # Export class info if needed
-    if scene.bat_properties.export_class_info:
-        bpy.ops.bat.export_class_info()
 
 
 def distort(vec: np.array, intr: np.array, distortion_params:np.array) -> tuple[np.array,np.array]:

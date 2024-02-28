@@ -168,7 +168,7 @@ class BAT_OT_export_class_info(bpy.types.Operator):
 
     def execute(self, context: Context) -> set[str]:
         '''
-        Export information on classes as a JSON
+        Export information on classes as a JSON in the metadata of the render output
 
         Args:
             context : Current context
@@ -178,13 +178,14 @@ class BAT_OT_export_class_info(bpy.types.Operator):
         '''
 
         class_info = {}
+        class_info['0'] = utils.DEFAULT_CLASS_NAME
         bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
         if not bat_scene is None:
-            for i, coll in enumerate(bat_scene.collection.children):
-                class_info[coll.name] = i+1  ## Class 0 is the "Background" class
-            path = os.path.join(os.path.split(bat_scene.render.frame_path(frame=bat_scene.frame_current))[0],'class_info.json')
-            with open(path, 'w') as f:
-                f.write(json.dumps(class_info))
+            for classification_class in bat_scene.bat_properties.classification_classes:
+                mask_material = bpy.data.materials.get(utils.BAT_SEGMENTATION_MASK_MAT_NAME+'_'+classification_class.name)
+                if mask_material:
+                    class_info[mask_material.pass_index] = classification_class.name
+            bat_scene.render.stamp_note_text = json.dumps(class_info)
         return {'FINISHED'}
 
 
