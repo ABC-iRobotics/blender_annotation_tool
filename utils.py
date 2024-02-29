@@ -12,6 +12,8 @@ DEFAULT_CLASS_NAME = 'Background'
 BAT_SCENE_NAME = 'BAT_Scene'
 BAT_VIEW_LAYER_NAME = 'BAT_ViewLayer'
 BAT_SEGMENTATION_MASK_MAT_NAME = 'BAT_segmentation_mask'
+INV_DISTORTION_MAP_NAME = 'DistortionMap'
+BAT_MOVIE_CLIP_NAME = 'BAT_MovieClip'
 
 
 # -------------------------------
@@ -76,6 +78,55 @@ def find_parent_collection(root_collection: Collection, collection: Collection) 
             parent = find_parent_collection(child_collection, collection)
             if parent:
                 return parent
+
+
+def setup_compositor(scene: Scene) -> None:
+    '''
+    Set up the compositor workspace of the scene
+
+    Args:
+        scene: Scene where the compositor will be set
+    '''
+    scene.use_nodes = True
+
+    # Delete all nodes from compositor
+    for n in scene.node_tree.nodes:
+        scene.node_tree.nodes.remove(n)
+    
+    # Add nodes
+    render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+    render_layers_node.name = 'RLayersBAT'
+    render_layers_node.scene = scene
+    render_layers_node.layer = BAT_VIEW_LAYER_NAME
+
+    compositor_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+
+    inv_distortion_map = bpy.data.images.get(INV_DISTORTION_MAP_NAME)
+    image_node = None
+    if not inv_distortion_map is None:
+        image_node = scene.node_tree.nodes.new('CompositorNodeImage')
+        image_node.image = inv_distortion_map
+
+    viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
+
+    file_output_node = scene.node_tree.nodes.new('CompositorNodeOutputFile')
+    file_output_node.format.file_format = OutputFormat.OPEN_EXR
+    file_output_node.format.color_mode = 'RGBA'
+    file_output_node.format.color_depth = ColorDepth.FULL
+    file_output_node.base_path = scene.render.filepath
+
+    movie_distortion_node = scene.node_tree.nodes.new('CompositorNodeMovieDistortion')
+    movie_distortion_node.clip = bpy.data.movieclips[BAT_MOVIE_CLIP_NAME]
+    movie_distortion_node.distortion_type = 'DISTORT'
+
+    # Create links
+    link_render_viewer = scene.node_tree.links.new(render_layers_node.outputs['Image'], viewer_node.inputs['Image'])
+    link_render_distort = scene.node_tree.links.new(render_layers_node.outputs['Image'], movie_distortion_node.inputs['Image'])
+    link_distort_composit = scene.node_tree.links.new(movie_distortion_node.outputs['Image'], compositor_node.inputs['Image'])
+    link_distort_file = scene.node_tree.links.new(movie_distortion_node.outputs['Image'], file_output_node.inputs['Image'])
+    if not image_node is None:
+        file_output_node.file_slots.new(INV_DISTORTION_MAP_NAME)
+        link_image_file = scene.node_tree.links.new(image_node.outputs['Image'], file_output_node.inputs[INV_DISTORTION_MAP_NAME])
 
 
 def add_empty_world(world: World, scene: Scene) -> None:
@@ -224,10 +275,6 @@ def render_scene(scene: Scene) -> None:
     # Set file name
     render_filepath_temp = scene.render.filepath
     scene.render.filepath = scene.render.frame_path(frame=scene.frame_current)
-
-    # Export class info if needed
-    if scene.bat_properties.export_class_info:
-        bpy.ops.bat.export_class_info()
         
     # Render image
     bpy.ops.render.render(write_still=scene.bat_properties.save_annotation, scene=scene.name)

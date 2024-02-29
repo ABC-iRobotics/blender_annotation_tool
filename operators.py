@@ -94,6 +94,34 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
                 if classification_class.is_instances:
                     obj_copy.pass_index += i
 
+
+        # Create a movieclip for using camera lens distortion from compositor
+        mov_clip = bpy.data.movieclips.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip.png'))
+        mov_clip.name = utils.BAT_MOVIE_CLIP_NAME
+        mov_clip.tracking.camera.distortion_model = 'BROWN'
+        mov_clip.tracking.camera.sensor_width = bat_scene.bat_properties.camera.sensor_width
+        fx = bat_scene.bat_properties.camera.fx
+        fy = bat_scene.bat_properties.camera.fy if bat_scene.bat_properties.camera.fy > 0 else 0.00001
+        mov_clip.tracking.camera.pixel_aspect = max(fx/fy,0.1)
+        mov_clip.tracking.camera.focal_length = (fx/bat_scene.render.resolution_x)*bat_scene.bat_properties.camera.sensor_width
+        mov_clip.tracking.camera.units = 'MILLIMETERS'
+        mov_clip.tracking.camera.principal[0] = bat_scene.bat_properties.camera.px
+        mov_clip.tracking.camera.principal[1] = bat_scene.bat_properties.camera.py
+        mov_clip.tracking.camera.brown_p1 = bat_scene.bat_properties.camera.p1
+        mov_clip.tracking.camera.brown_p2 = bat_scene.bat_properties.camera.p2
+        mov_clip.tracking.camera.brown_k1 = bat_scene.bat_properties.camera.k1
+        mov_clip.tracking.camera.brown_k2 = bat_scene.bat_properties.camera.k2
+        mov_clip.tracking.camera.brown_k3 = bat_scene.bat_properties.camera.k3
+        mov_clip.tracking.camera.brown_k4 = bat_scene.bat_properties.camera.k4
+
+
+        # Export class info if needed
+        if bat_scene.bat_properties.export_class_info:
+            bpy.ops.bat.export_class_info()
+
+        # Setup compositor workspace
+        utils.setup_compositor(bat_scene)
+
         return {'FINISHED'}
 
 
@@ -127,6 +155,10 @@ class BAT_OT_remove_bat_scene(bpy.types.Operator):
             if segmentation_mask_material:
                 bpy.data.materials.remove(segmentation_mask_material)
             bpy.data.scenes.remove(bat_scene)
+
+        mov_clip = bpy.data.movieclips.get(utils.BAT_MOVIE_CLIP_NAME)
+        if not mov_clip is None:
+            bpy.data.movieclips.remove(mov_clip)
         return {'FINISHED'}
 
 
@@ -224,10 +256,10 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
         distortion_map = np.append(distortion_map, np.zeros((height,width,2)), axis=2)
 
         # Save distortion map as image
-        if not 'DistortionMap' in bpy.data.images:
-            dist_map_img = bpy.data.images.new('DistortionMap', width, height, alpha=True, float_buffer=True, is_data=True)
+        if not utils.INV_DISTORTION_MAP_NAME in bpy.data.images:
+            dist_map_img = bpy.data.images.new(utils.INV_DISTORTION_MAP_NAME, width, height, alpha=True, float_buffer=True, is_data=True)
         else:
-            dist_map_img = bpy.data.images['DistortionMap']
+            dist_map_img = bpy.data.images[utils.INV_DISTORTION_MAP_NAME]
         dist_map_img.pixels = distortion_map.flatten()
 
         return {'FINISHED'}
@@ -252,10 +284,10 @@ class BAT_OT_distort_image(bpy.types.Operator):
         '''
 
         # Read distortion map
-        dist_map_img = bpy.data.images.get('DistortionMap')
+        dist_map_img = bpy.data.images.get(utils.INV_DISTORTION_MAP_NAME)
         if not dist_map_img is None:
-            w, h = bpy.data.images['DistortionMap'].size
-            dmap = np.array(bpy.data.images['DistortionMap'].pixels[:], dtype=np.float32)
+            w, h = bpy.data.images[utils.INV_DISTORTION_MAP_NAME].size
+            dmap = np.array(bpy.data.images[utils.INV_DISTORTION_MAP_NAME].pixels[:], dtype=np.float32)
             dmap = np.reshape(dmap, (h, w, 4))[:,:,:]
             ys = dmap[:,:,0].flatten().astype(int)
             xs = dmap[:,:,1].flatten().astype(int)
