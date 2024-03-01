@@ -139,6 +139,8 @@ class BAT_PT_camera_panel(bpy.types.Panel):
         # Create/Update distortion map
         layout.row().separator()
         row = layout.row()
+        row.prop(context.scene.bat_properties.camera, 'upscale_factor', text='Upscale Factor')
+        row = layout.row()
         row.operator('bat.generate_distortion_map', text='Create/Update Distortion Map', icon='IMAGE_DATA')
 
 

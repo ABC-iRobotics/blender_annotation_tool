@@ -246,7 +246,7 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
         width = int(scene.render.resolution_x * (scene.render.resolution_percentage/100))
         height = int(scene.render.resolution_y * (scene.render.resolution_percentage/100))
 
-        upscale_factor = 2  # Used for upscaling to achieve subpixel sampling and to avoid missing values in the map
+        upscale_factor = scene.bat_properties.camera.upscale_factor  # Used for upscaling to achieve subpixel sampling and to avoid missing values in the map
 
         # Get camera parameters
         intr = [cam.fx,cam.fy,cam.px,cam.py]

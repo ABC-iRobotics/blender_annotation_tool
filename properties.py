@@ -243,6 +243,13 @@ class BAT_Camera(bpy.types.PropertyGroup):
         name="k4",
         description="Lens distortion k4 parameter",
     )
+    upscale_factor: bpy.props.IntProperty(
+        name = 'upscale_factor',
+        description="Factor for upscaling image for sub-pixel sampling in inverse distortion map",
+        min = 1,
+        soft_min = 1,
+        default = 1,
+    )
 
 
 # -------------------------------
