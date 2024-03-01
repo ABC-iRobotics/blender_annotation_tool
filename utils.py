@@ -120,10 +120,29 @@ def setup_compositor(scene: Scene) -> None:
     movie_distortion_node.distortion_type = 'DISTORT'
 
     # Create links
-    link_render_viewer = scene.node_tree.links.new(render_layers_node.outputs['Image'], viewer_node.inputs['Image'])
-    link_render_distort = scene.node_tree.links.new(render_layers_node.outputs['Image'], movie_distortion_node.inputs['Image'])
-    link_distort_composit = scene.node_tree.links.new(movie_distortion_node.outputs['Image'], compositor_node.inputs['Image'])
-    link_distort_file = scene.node_tree.links.new(movie_distortion_node.outputs['Image'], file_output_node.inputs['Image'])
+    scene.node_tree.links.new(render_layers_node.outputs['Image'], viewer_node.inputs['Image'])
+    scene.node_tree.links.new(render_layers_node.outputs['Image'], movie_distortion_node.inputs['Image'])
+    scene.node_tree.links.new(movie_distortion_node.outputs['Image'], compositor_node.inputs['Image'])
+    scene.node_tree.links.new(movie_distortion_node.outputs['Image'], file_output_node.inputs['Image'])
+
+    file_output_node.file_slots.new('ClassID')
+    scene.node_tree.links.new(render_layers_node.outputs['IndexMA'], file_output_node.inputs['ClassID'])
+
+    file_output_node.file_slots.new('InstanceID')
+    scene.node_tree.links.new(render_layers_node.outputs['IndexOB'], file_output_node.inputs['InstanceID'])
+
+    if scene.bat_properties.depth_map_generation:
+        file_output_node.file_slots.new('Depth')
+        scene.node_tree.links.new(render_layers_node.outputs['Depth'], file_output_node.inputs['Depth'])
+
+    if scene.bat_properties.surface_normal_generation:
+        file_output_node.file_slots.new('Normal')
+        scene.node_tree.links.new(render_layers_node.outputs['Normal'], file_output_node.inputs['Normal'])
+
+    if scene.bat_properties.optical_flow_generation:
+        file_output_node.file_slots.new('Flow')
+        scene.node_tree.links.new(render_layers_node.outputs['Vector'], file_output_node.inputs['Flow'])
+
     if not image_node is None:
         file_output_node.file_slots.new(INV_DISTORTION_MAP_NAME)
         link_image_file = scene.node_tree.links.new(image_node.outputs['Image'], file_output_node.inputs[INV_DISTORTION_MAP_NAME])
