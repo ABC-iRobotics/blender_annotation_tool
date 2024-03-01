@@ -277,7 +277,7 @@ def render_scene(scene: Scene) -> None:
     scene.render.filepath = scene.render.frame_path(frame=scene.frame_current)
         
     # Render image
-    bpy.ops.render.render(write_still=scene.bat_properties.save_annotation, scene=scene.name)
+    bpy.ops.render.render(write_still=False, scene=scene.name)
 
     # Reset output path
     scene.render.filepath = render_filepath_temp

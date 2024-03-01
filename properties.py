@@ -313,19 +313,6 @@ class BAT_Properties(bpy.types.PropertyGroup):
         default=False
     )
 
-    # Output properties
-    save_annotation: bpy.props.BoolProperty(
-        name='Save annotations',
-        description="Save the annotations whenever a render is made",
-        default=False
-    )
-
-    export_class_info: bpy.props.BoolProperty(
-        name='Export class info',
-        description="Export class name and ID association to JSON",
-        default=False
-    )
-
     # Camera properties
     camera: bpy.props.PointerProperty(type=BAT_Camera)
 

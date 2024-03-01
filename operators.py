@@ -115,9 +115,8 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
         mov_clip.tracking.camera.brown_k4 = bat_scene.bat_properties.camera.k4
 
 
-        # Export class info if needed
-        if bat_scene.bat_properties.export_class_info:
-            bpy.ops.bat.export_class_info()
+        # Export class info
+        bpy.ops.bat.export_class_info()
 
         # Setup compositor workspace
         utils.setup_compositor(bat_scene)
