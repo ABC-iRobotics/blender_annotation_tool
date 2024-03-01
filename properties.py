@@ -83,6 +83,13 @@ def update_classification_class_is_instances(self, context: Context) -> None:
     context.scene.bat_properties.classification_classes[index].is_instances = context.scene.bat_properties.current_class_is_instances
 
 
+def update_camera_calibration_file(self, context: Context) -> None:
+    '''
+    Update camera intrinsics and lens distortion parameters
+    '''
+    bpy.ops.bat.import_camera_data()
+    
+
 def get_sensor_width(self) -> float:
     '''
     Getter for Camera sensor_width
@@ -161,6 +168,14 @@ class BAT_Camera(bpy.types.PropertyGroup):
     '''
     Property group describing a camera
     '''
+
+    calibration_file: bpy.props.StringProperty(
+        name = 'calibration_file',
+        description = 'Import camera calibration data',
+        subtype = 'FILE_PATH',
+        update = update_camera_calibration_file,
+    )
+
 
     sensor_width: bpy.props.FloatProperty(
         name="sensor_width",

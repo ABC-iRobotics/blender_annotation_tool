@@ -1,11 +1,13 @@
 import os
 import json
 import bpy
+import numbers
 from bpy.app.handlers import persistent
 from . import utils
 import numpy as np
 
 from bpy.types import Context, Event, Scene
+from json.decoder import JSONDecodeError
 
 # -------------------------------
 # Operators
@@ -312,6 +314,78 @@ class BAT_OT_distort_image(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class BAT_OT_import_camera_data(bpy.types.Operator):
+    """Import camera data"""
+    bl_idname = 'bat.import_camera_data'
+    bl_label = 'Import camera data'
+    bl_options = {'REGISTER'}
+
+    def execute(self, context: Context) -> set[str]:
+        '''
+        Import camera data from json file
+
+        Args:
+            context : Current context
+        
+        Returns:
+            status : Execution status
+        '''
+
+        scene = context.scene
+        # Read json file
+        filepath = scene.bat_properties.camera.calibration_file
+        if os.path.isfile(filepath):
+            with open(filepath,'r') as f:
+                try:
+                    calib_data = json.loads(f.read())
+                except JSONDecodeError:
+                    self.report({'WARNING'}, 'The selected file is not a valid JSON!')
+                    return {'CANCELLED'}
+            if isinstance(calib_data, dict):
+                if 'cam_mtx' in calib_data:
+                    if isinstance(calib_data['cam_mtx'], list):
+                        cam_mtx = calib_data['cam_mtx']
+                        if len(cam_mtx) == 3 and all((isinstance(e, list) for e in cam_mtx)):
+                            if all((len(e)==3 for e in cam_mtx)) and all((all(isinstance(ie,numbers.Number) for ie in e) for e in cam_mtx)):
+                                scene.bat_properties.camera.fx = cam_mtx[0][0]
+                                scene.bat_properties.camera.fy = cam_mtx[1][1]
+                                scene.bat_properties.camera.px = cam_mtx[0][2]
+                                scene.bat_properties.camera.py = cam_mtx[1][2]
+                            else:
+                                self.report({'WARNING'}, '"cam_mtx" must be 3x3 matrix!')
+                                return {'CANCELLED'}
+                        else:
+                            self.report({'WARNING'}, '"cam_mtx" must be 3x3 matrix!')
+                            return {'CANCELLED'}
+                    else:
+                        self.report({'WARNING'}, '"cam_mtx" field must be a list!')
+                        return {'CANCELLED'}
+                if 'dist' in calib_data:
+                    if isinstance(calib_data['dist'], list):
+                        dist = calib_data['dist']
+                        if len(dist) == 6 and all(isinstance(e,numbers.Number) for e in dist):
+                            scene.bat_properties.camera.k1 = dist[0]
+                            scene.bat_properties.camera.k2 = dist[1]
+                            scene.bat_properties.camera.p1 = dist[2]
+                            scene.bat_properties.camera.p2 = dist[3]
+                            scene.bat_properties.camera.k3 = dist[4]
+                            scene.bat_properties.camera.k4 = dist[5]
+                        else:
+                            self.report({'WARNING'}, '"dist" field must be a list of six numbers! (k1,k2,p1,p2,k3,k4)')
+                            return {'CANCELLED'}
+                    else:
+                        self.report({'WARNING'}, '"dist" field must be a list!')
+                        return {'CANCELLED'}
+            else:
+                self.report({'WARNING'}, 'The file must contain a dictionary!')
+                return {'CANCELLED'}
+        else:
+            self.report({'WARNING'}, 'Could not access the selected file!')
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+
 # Add new class
 class BAT_OT_add_class(bpy.types.Operator):
     """Add new class to the list of classes"""
@@ -437,6 +511,7 @@ classes = [
     BAT_OT_export_class_info,
     BAT_OT_generate_distortion_map,
     BAT_OT_distort_image,
+    BAT_OT_import_camera_data,
     BAT_OT_add_class, 
     BAT_OT_remove_class
     ]

@@ -90,6 +90,8 @@ class BAT_PT_camera_panel(bpy.types.Panel):
 
         layout = self.layout
         row = layout.row()
+        row.prop(context.scene.bat_properties.camera, 'calibration_file', text='Import From File')
+        row = layout.row()
         row.prop(context.scene.bat_properties.camera, 'sensor_width', text='Sensor Width')
 
         # -------------------------------
