@@ -5,7 +5,7 @@ bl_info = {
     "name": "BAT (Blender Annotation Tool)",
     "description": "3D scene annotation for scene and instance segmentation",
     "author": "Artur Istvan Karoly",
-    "blender": (3, 10, 0),
+    "blender": (3, 1, 0),
     "version": (1, 0, 0),
     "category": "Render"
 }
