@@ -354,11 +354,12 @@ def generate_inverse_distortion_map(width: int, height: int, intr: np.array, dis
         distortion_params: NumPy array containing lens distortion parameters (p1,p2,k1,k2,k3,k4)
     
     Returns:
-        inv_distortion_map: NumPy array containing the inverse distorion map. The shape is (height,width,2)
-        The last dimension is for the y and x coordinates respectively
+        inv_distortion_map: NumPy array containing the inverse distorion map. The shape is (height,width,3)
+        The last dimension is for the y and x coordinates and a flag that signals if the pixel needs to be set or not
     '''
     # Create empty inverse distortion map
     inv_distortion_map = np.zeros((height,width,2))
+    changed_items = np.zeros((height,width,1))
 
     # Create image coordinates matrix
     coords = np.moveaxis(np.mgrid[0:height*upscale_factor,0:width*upscale_factor],[0],[2])/upscale_factor
@@ -373,4 +374,6 @@ def generate_inverse_distortion_map(width: int, height: int, intr: np.array, dis
     coords = np.reshape(coords, (height*upscale_factor*width*upscale_factor, 2))[valid_indices]
 
     inv_distortion_map[distorted_ys,distorted_xs] = coords
+    changed_items[distorted_ys,distorted_xs] = 1
+    inv_distortion_map = np.append(inv_distortion_map, changed_items, axis=2)
     return inv_distortion_map

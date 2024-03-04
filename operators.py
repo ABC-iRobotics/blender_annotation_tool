@@ -230,7 +230,7 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
 
         # Generate distorion map
         distortion_map = utils.generate_inverse_distortion_map(width, height, intr, distort, upscale_factor)
-        distortion_map = np.append(distortion_map, np.zeros((height,width,2)), axis=2)
+        distortion_map = np.append(distortion_map, np.ones((height,width,1)), axis=2)
 
         # Save distortion map as image
         if not utils.INV_DISTORTION_MAP_NAME in bpy.data.images:
