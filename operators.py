@@ -96,27 +96,6 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
                 if classification_class.is_instances:
                     obj_copy.pass_index += i
 
-
-        # Create a movieclip for using camera lens distortion from compositor
-        mov_clip = bpy.data.movieclips.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip.png'))
-        mov_clip.name = utils.BAT_MOVIE_CLIP_NAME
-        mov_clip.tracking.camera.distortion_model = 'BROWN'
-        mov_clip.tracking.camera.sensor_width = bat_scene.bat_properties.camera.sensor_width
-        fx = bat_scene.bat_properties.camera.fx
-        fy = bat_scene.bat_properties.camera.fy if bat_scene.bat_properties.camera.fy > 0 else 0.00001
-        mov_clip.tracking.camera.pixel_aspect = max(fx/fy,0.1)
-        mov_clip.tracking.camera.focal_length = (fx/bat_scene.render.resolution_x)*bat_scene.bat_properties.camera.sensor_width
-        mov_clip.tracking.camera.units = 'MILLIMETERS'
-        mov_clip.tracking.camera.principal[0] = bat_scene.bat_properties.camera.px
-        mov_clip.tracking.camera.principal[1] = bat_scene.bat_properties.camera.py
-        mov_clip.tracking.camera.brown_p1 = bat_scene.bat_properties.camera.p1
-        mov_clip.tracking.camera.brown_p2 = bat_scene.bat_properties.camera.p2
-        mov_clip.tracking.camera.brown_k1 = bat_scene.bat_properties.camera.k1
-        mov_clip.tracking.camera.brown_k2 = bat_scene.bat_properties.camera.k2
-        mov_clip.tracking.camera.brown_k3 = bat_scene.bat_properties.camera.k3
-        mov_clip.tracking.camera.brown_k4 = bat_scene.bat_properties.camera.k4
-
-
         # Export class info
         bpy.ops.bat.export_class_info()
 
@@ -157,9 +136,6 @@ class BAT_OT_remove_bat_scene(bpy.types.Operator):
                 bpy.data.materials.remove(segmentation_mask_material)
             bpy.data.scenes.remove(bat_scene)
 
-        mov_clip = bpy.data.movieclips.get(utils.BAT_MOVIE_CLIP_NAME)
-        if not mov_clip is None:
-            bpy.data.movieclips.remove(mov_clip)
         return {'FINISHED'}
 
 
@@ -262,6 +238,67 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
         else:
             dist_map_img = bpy.data.images[utils.INV_DISTORTION_MAP_NAME]
         dist_map_img.pixels = distortion_map.flatten()
+
+        # Create a movieclip for using camera lens distortion from compositor
+        mov_clip = bpy.data.movieclips.get(utils.BAT_MOVIE_CLIP_NAME)
+        if mov_clip is None:
+            mov_clip = bpy.data.movieclips.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip.png'))
+            mov_clip.name = utils.BAT_MOVIE_CLIP_NAME
+        mov_clip.tracking.camera.distortion_model = 'BROWN'
+        mov_clip.tracking.camera.sensor_width = scene.bat_properties.camera.sensor_width
+        fx = scene.bat_properties.camera.fx
+        fy = scene.bat_properties.camera.fy if scene.bat_properties.camera.fy > 0 else 0.00001
+        mov_clip.tracking.camera.pixel_aspect = max(fx/fy,0.1)
+        mov_clip.tracking.camera.focal_length = (fx/scene.render.resolution_x)*scene.bat_properties.camera.sensor_width
+        mov_clip.tracking.camera.units = 'MILLIMETERS'
+        mov_clip.tracking.camera.principal[0] = scene.bat_properties.camera.px
+        mov_clip.tracking.camera.principal[1] = scene.bat_properties.camera.py
+        mov_clip.tracking.camera.brown_p1 = scene.bat_properties.camera.p1
+        mov_clip.tracking.camera.brown_p2 = scene.bat_properties.camera.p2
+        mov_clip.tracking.camera.brown_k1 = scene.bat_properties.camera.k1
+        mov_clip.tracking.camera.brown_k2 = scene.bat_properties.camera.k2
+        mov_clip.tracking.camera.brown_k3 = scene.bat_properties.camera.k3
+        mov_clip.tracking.camera.brown_k4 = scene.bat_properties.camera.k4
+
+        # Create new node group for compositor
+        bat_distort_group = bpy.data.node_groups.get(utils.BAT_DISTORTION_NODE_GROUP_NAME)
+        if bat_distort_group is None:
+            bat_distort_group = bpy.data.node_groups.new(utils.BAT_DISTORTION_NODE_GROUP_NAME, 'CompositorNodeTree')
+
+            # Create group inputs
+            group_inputs = bat_distort_group.nodes.get('NodeGroupInput')
+            if group_inputs is None:
+                group_inputs = bat_distort_group.nodes.new('NodeGroupInput')
+                bat_distort_group.inputs.new('NodeSocketImage','Image')
+
+            # create group outputs
+            group_outputs = bat_distort_group.nodes.get('NodeGroupOutput')
+            if group_outputs is None:
+                group_outputs = bat_distort_group.nodes.new('NodeGroupOutput')
+                bat_distort_group.outputs.new('NodeSocketImage','Image')
+
+            movie_distortion_node = bat_distort_group.nodes.new('CompositorNodeMovieDistortion')
+            movie_distortion_node.clip = bpy.data.movieclips[utils.BAT_MOVIE_CLIP_NAME]
+            movie_distortion_node.distortion_type = 'DISTORT'
+
+            bat_distort_group.links.new(group_inputs.outputs['Image'], movie_distortion_node.inputs['Image'])
+            bat_distort_group.links.new(movie_distortion_node.outputs['Image'], group_outputs.inputs['Image'])
+
+
+        # Add to compositor if compositor workspace is empty
+        if scene.node_tree is None:
+            scene.use_nodes = True
+            for n in scene.node_tree.nodes:
+                scene.node_tree.nodes.remove(n)
+            render_layers_node = scene.node_tree.nodes.new('CompositorNodeRLayers')
+            render_layers_node.scene = scene
+            bat_distortion_node = scene.node_tree.nodes.new('CompositorNodeGroup')
+            bat_distortion_node.node_tree = bpy.data.node_groups[utils.BAT_DISTORTION_NODE_GROUP_NAME]
+            compositor_node = scene.node_tree.nodes.new('CompositorNodeComposite')
+
+            scene.node_tree.links.new(render_layers_node.outputs['Image'], bat_distortion_node.inputs['Image'])
+            scene.node_tree.links.new(bat_distortion_node.outputs['Image'], compositor_node.inputs['Image'])
+            
 
         return {'FINISHED'}
 

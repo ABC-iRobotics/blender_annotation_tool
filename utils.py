@@ -14,6 +14,7 @@ BAT_VIEW_LAYER_NAME = 'BAT_ViewLayer'
 BAT_SEGMENTATION_MASK_MAT_NAME = 'BAT_segmentation_mask'
 INV_DISTORTION_MAP_NAME = 'DistortionMap'
 BAT_MOVIE_CLIP_NAME = 'BAT_MovieClip'
+BAT_DISTORTION_NODE_GROUP_NAME = 'BAT_Distort'
 
 
 # -------------------------------
@@ -115,15 +116,10 @@ def setup_compositor(scene: Scene) -> None:
     file_output_node.format.color_depth = ColorDepth.FULL
     file_output_node.base_path = scene.render.filepath
 
-    movie_distortion_node = scene.node_tree.nodes.new('CompositorNodeMovieDistortion')
-    movie_distortion_node.clip = bpy.data.movieclips[BAT_MOVIE_CLIP_NAME]
-    movie_distortion_node.distortion_type = 'DISTORT'
-
     # Create links
     scene.node_tree.links.new(render_layers_node.outputs['Image'], viewer_node.inputs['Image'])
-    scene.node_tree.links.new(render_layers_node.outputs['Image'], movie_distortion_node.inputs['Image'])
-    scene.node_tree.links.new(movie_distortion_node.outputs['Image'], compositor_node.inputs['Image'])
-    scene.node_tree.links.new(movie_distortion_node.outputs['Image'], file_output_node.inputs['Image'])
+    scene.node_tree.links.new(render_layers_node.outputs['Image'], compositor_node.inputs['Image'])
+    scene.node_tree.links.new(render_layers_node.outputs['Image'], file_output_node.inputs['Image'])
 
     file_output_node.file_slots.new('ClassID')
     scene.node_tree.links.new(render_layers_node.outputs['IndexMA'], file_output_node.inputs['ClassID'])
@@ -145,7 +141,7 @@ def setup_compositor(scene: Scene) -> None:
 
     if not image_node is None:
         file_output_node.file_slots.new(INV_DISTORTION_MAP_NAME)
-        link_image_file = scene.node_tree.links.new(image_node.outputs['Image'], file_output_node.inputs[INV_DISTORTION_MAP_NAME])
+        scene.node_tree.links.new(image_node.outputs['Image'], file_output_node.inputs[INV_DISTORTION_MAP_NAME])
 
 
 def add_empty_world(world: World, scene: Scene) -> None:
