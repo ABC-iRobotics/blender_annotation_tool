@@ -30,79 +30,10 @@ class BAT_OT_setup_bat_scene(bpy.types.Operator):
             status : Execution status
         '''
 
-        active_scene = context.scene
-        bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
-
-        # Create the BAT scene if it does not exist yet
-        if bat_scene is None:
-            bat_scene = active_scene.copy()
-            bat_scene.name = utils.BAT_SCENE_NAME
-
-        
-        # Add an empty world (no HDRI, no world lighting ...)
-        utils.add_empty_world(active_scene.world, bat_scene)
-
-
-        # Render settings
-        utils.apply_render_settings(bat_scene)
-
-        # Image output settings (we use OpenEXR Multilayer)
-        utils.apply_output_settings(bat_scene, utils.OutputFormat.OPEN_EXR)
-
-
-        # Unlink all collections and objects from BAT scene
-        for coll in bat_scene.collection.children:
-            bat_scene.collection.children.unlink(coll)
-        for obj in bat_scene.collection.objects:
-            bat_scene.collection.objects.unlink(obj)
-            
-
-        # Link needed collections/objects to BAT scene
-        for class_index, classification_class in enumerate([c for c in bat_scene.bat_properties.classification_classes if c.name != utils.DEFAULT_CLASS_NAME]):
-
-            # Create a material for segmentation masks
-            mask_material = utils.make_mask_material(utils.BAT_SEGMENTATION_MASK_MAT_NAME+'_'+classification_class.name)
-            mask_material.pass_index = class_index+1
-
-            # Get original collection and create a new one in the BAT scene for each
-            # classification class
-            orig_collection = bpy.data.collections.get(classification_class.objects)
-            if orig_collection is None:
-                # If the collection is deleted or renamed in the meantime
-                self.report({'ERROR'},'Could not find collection {}!'.format(classification_class.objects))
-                return {'CANCELLED'}
-            new_collection = bpy.data.collections.new(classification_class.name)
-            bat_scene.collection.children.link(new_collection)
-
-            # Duplicate objects
-            for i, obj in enumerate([o for o in orig_collection.objects if hasattr(o.data, 'materials')]):
-                # Only add objects to BAT scene that have materials
-                obj_copy = obj.copy()
-                obj_copy.data = obj.data.copy()
-                obj_copy.pass_index = 100  # Pass index controls emission strength in the mask material (>100 for visualization)
-                new_collection.objects.link(obj_copy)
-
-                # Assign segmentation mask material
-                if obj_copy.data.materials:
-                    obj_copy.data.materials[0] = mask_material
-                else:
-                    obj_copy.data.materials.append(mask_material)
-            
-                # Set object color
-                color = list(classification_class.mask_color)
-                obj_copy.color = color
-
-                # For instances increase emission strength in the material so they can be distinguished
-                if classification_class.is_instances:
-                    obj_copy.pass_index += i
-
-        # Export class info
-        bpy.ops.bat.export_class_info()
-
-        # Setup compositor workspace
-        utils.setup_compositor(bat_scene)
-
-        return {'FINISHED'}
+        res, message = utils.setup_bat_scene()
+        if res == {"CANCELLED"}:
+            self.report({'ERROR'}, message)
+        return res
 
 
 # Remove BAT scene
@@ -122,21 +53,8 @@ class BAT_OT_remove_bat_scene(bpy.types.Operator):
         Returns:
             status : Execution status
         '''
-        bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
-
-        if not bat_scene is None:
-            # Remove objects, collections, world and material:
-            for obj in bat_scene.objects:
-                bpy.data.objects.remove(obj)
-            for coll in bat_scene.collection.children_recursive:
-                bpy.data.collections.remove(coll)
-            bpy.data.worlds.remove(bat_scene.world)
-            segmentation_mask_material = bpy.data.materials.get(utils.BAT_SEGMENTATION_MASK_MAT_NAME)
-            if segmentation_mask_material:
-                bpy.data.materials.remove(segmentation_mask_material)
-            bpy.data.scenes.remove(bat_scene)
-
-        return {'FINISHED'}
+        res = utils.remove_bat_scene()
+        return res
 
 
 # Render annotations
@@ -157,15 +75,10 @@ class BAT_OT_render_annotation(bpy.types.Operator):
             status : Execution status
         '''
 
-        bpy.ops.bat.setup_bat_scene()
-
-        bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
-        if not bat_scene is None:
-            utils.render_scene(bat_scene)
-
-        bpy.ops.bat.remove_bat_scene()
-
-        return {'FINISHED'}
+        res, message = utils.bat_render_annotation()
+        if res == {"CANCELLED"}:
+            self.report({'ERROR'}, message)
+        return res
 
 
 # Export class info
@@ -186,16 +99,8 @@ class BAT_OT_export_class_info(bpy.types.Operator):
             status : Execution status
         '''
 
-        class_info = {}
-        class_info['0'] = utils.DEFAULT_CLASS_NAME
-        bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
-        if not bat_scene is None:
-            for classification_class in bat_scene.bat_properties.classification_classes:
-                mask_material = bpy.data.materials.get(utils.BAT_SEGMENTATION_MASK_MAT_NAME+'_'+classification_class.name)
-                if not mask_material is None:
-                    class_info[mask_material.pass_index] = classification_class.name
-            bat_scene.render.stamp_note_text = json.dumps(class_info)
-        return {'FINISHED'}
+        res = utils.export_class_info()
+        return res
 
 
 # Generate distortion map for simulating lens distortions

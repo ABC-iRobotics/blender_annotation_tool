@@ -31,3 +31,80 @@ The annotations are saved as OpenEXR Multilayer files in a newly created folder 
 ### Instance segmentation and additional modalities
 
 ![Instance Segmentation and other modalities](imgs/instance_segmentation_example.gif)
+
+## HTTP Remote Interface
+
+The HTTP Remote Interface allows remote control of object poses, camera settings, current frame, and rendering through HTTP requests. It starts an HTTP server within Blender, enabling it to accept commands via POST requests for setting parameters and GET requests for retrieving scene data.
+
+### Usage
+
+To use the HTTP Interface, start Blender with BAT enabled. The HTTP server will automatically start using PORT 12345 and listening to remote connections. Below are examples of how to interact with it using `curl`.
+
+**Set the pose of the Cube object when the HTTP Interface is running on localhost**
+```bash
+curl --header "Content-Type: application/json" \
+     --request POST \
+     --data '{"pose":{"name":"Cube","location":[1,0,0],"rotation":[0,0,1.5708]}}' \
+     http://localhost:12345
+```
+
+**Set camera p1 and p2 parameters when the HTTP Interface is running on localhost**
+```bash
+curl --header "Content-Type: application/json" \
+     --request POST \
+     --data '{"camera":{"p1":0.5,"p2":0.2}}' \
+     http://localhost:12345
+```
+
+The available camera settings are:
+ - **sensor_width, fx, fy, cx, cy, p1, p2, k1, k2, k3, k4 (all as floats)**
+ - **upscale_factor (integer)**
+   
+
+**Set the current frame to 1 when the HTTP Interface is running on localhost**
+```bash
+curl --header "Content-Type: application/json" \
+     --request POST \
+     --data '{"frame":1}' \
+     http://localhost:12345
+```
+
+**Trigger a render when the HTTP Interface is running on localhost**
+```bash
+curl --header "Content-Type: application/json" \
+     --request POST \
+     --data '{"render":{"render":true}}' \
+     http://localhost:12345
+```
+
+Multiple settings can be combined in a single request. The order of their execution will be "camera" > "pose" > "frame" > "render":
+```bash
+curl --header "Content-Type: application/json" \
+     --request POST \
+     --data '{"camera":{"p1":0.5,"p2":0.2}, "frame":1, "render":{"render":true}}' \
+     http://localhost:12345
+```
+
+**Get the Current Frame**
+
+Retrieve the current frame of the Blender scene:
+```bash
+curl http://localhost:12345/frame
+```
+
+**Get Object Pose**
+
+Retrieve the current pose (location and rotation) of a specific object:
+```bash
+curl http://localhost:12345/object?name=Cube
+```
+
+Example response:
+```json
+{
+  "status": "success",
+  "object": "Cube",
+  "location": [1.0, 0.0, 0.0],
+  "rotation": [0.0, 0.0, 1.5708]
+}
+```
