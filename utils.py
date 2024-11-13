@@ -105,9 +105,12 @@ def setup_compositor(scene: Scene) -> None:
 
     inv_distortion_map = bpy.data.images.get(INV_DISTORTION_MAP_NAME)
     image_node = None
+    flip_node = None
     if not inv_distortion_map is None:
         image_node = scene.node_tree.nodes.new('CompositorNodeImage')
         image_node.image = inv_distortion_map
+        flip_node = scene.node_tree.nodes.new('CompositorNodeFlip')
+        flip_node.axis = 'Y'
 
     viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
 
@@ -140,9 +143,10 @@ def setup_compositor(scene: Scene) -> None:
         file_output_node.file_slots.new('Flow')
         scene.node_tree.links.new(render_layers_node.outputs['Vector'], file_output_node.inputs['Flow'])
 
-    if not image_node is None:
+    if not image_node is None and not flip_node is None:
         file_output_node.file_slots.new(INV_DISTORTION_MAP_NAME)
-        scene.node_tree.links.new(image_node.outputs['Image'], file_output_node.inputs[INV_DISTORTION_MAP_NAME])
+        scene.node_tree.links.new(image_node.outputs['Image'], flip_node.inputs['Image'])
+        scene.node_tree.links.new(flip_node.outputs['Image'], file_output_node.inputs[INV_DISTORTION_MAP_NAME])
 
 
 def add_empty_world(world: World, scene: Scene) -> None:
