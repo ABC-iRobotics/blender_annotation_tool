@@ -95,7 +95,7 @@ def get_sensor_width(self) -> float:
     Getter for Camera sensor_width
     '''
     if 'sensor_width' not in self:
-        return bpy.data.cameras[bpy.context.scene.camera.name].sensor_width
+        return bpy.data.cameras[bpy.context.scene.camera.data.name].sensor_width
     return self['sensor_width']
 
 def set_sensor_width(self, value: float) -> None:
