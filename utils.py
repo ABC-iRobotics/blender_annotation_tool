@@ -112,6 +112,20 @@ def setup_compositor(scene: Scene) -> None:
         flip_node = scene.node_tree.nodes.new('CompositorNodeFlip')
         flip_node.axis = 'Y'
 
+    separate_rgba_node = None
+    combine_rgba_node = None
+    math_node_1 = None
+    math_node_2 = None
+    if scene.bat_properties.optical_flow_generation:
+        separate_rgba_node = scene.node_tree.nodes.new('CompositorNodeSepRGBA')
+        combine_rgba_node = scene.node_tree.nodes.new('CompositorNodeCombRGBA')
+        math_node_1 = scene.node_tree.nodes.new('CompositorNodeMath')
+        math_node_1.operation = 'MULTIPLY'
+        math_node_1.inputs[1].default_value = -1
+        math_node_2 = scene.node_tree.nodes.new('CompositorNodeMath')
+        math_node_2.operation = 'MULTIPLY'
+        math_node_2.inputs[1].default_value = -1
+
     viewer_node = scene.node_tree.nodes.new('CompositorNodeViewer')
 
     file_output_node = scene.node_tree.nodes.new('CompositorNodeOutputFile')
@@ -139,9 +153,23 @@ def setup_compositor(scene: Scene) -> None:
         file_output_node.file_slots.new('Normal')
         scene.node_tree.links.new(render_layers_node.outputs['Normal'], file_output_node.inputs['Normal'])
 
-    if scene.bat_properties.optical_flow_generation:
+    if scene.bat_properties.optical_flow_generation and not separate_rgba_node is None and not combine_rgba_node is None and not math_node_1 is None and not math_node_2 is None:
         file_output_node.file_slots.new('Flow')
-        scene.node_tree.links.new(render_layers_node.outputs['Vector'], file_output_node.inputs['Flow'])
+        scene.node_tree.links.new(render_layers_node.outputs['Vector'], separate_rgba_node.inputs['Image'])
+        # X component of backward flow goes in B
+        scene.node_tree.links.new(separate_rgba_node.outputs['R'], combine_rgba_node.inputs['B'])
+        # Y component of backward flow needs to be flipped (because in blender Y=0 is at the bottom of the image)
+        scene.node_tree.links.new(separate_rgba_node.outputs['G'], math_node_1.inputs[0])
+        # Y component of backward flow goes in A
+        scene.node_tree.links.new(math_node_1.outputs[0], combine_rgba_node.inputs['A'])
+        # X component of forward flow is computed by inverting backward flow for next frame
+        scene.node_tree.links.new(separate_rgba_node.outputs['B'], math_node_2.inputs[0])
+        # X component of forward flow goes in G to be compatible with DistortionMap
+        scene.node_tree.links.new(math_node_2.outputs[0], combine_rgba_node.inputs['G'])
+        # Y component of forward flow goes in R to be compatible with DistortionMap (this doesn't need to be inverted, because it should be inverted twice:
+        # once because we compute it from the backwards flow from the next frame, and then again for taking Blender's Y=0 being at the bottom into account)
+        scene.node_tree.links.new(separate_rgba_node.outputs['A'], combine_rgba_node.inputs['R'])
+        scene.node_tree.links.new(combine_rgba_node.outputs['Image'], file_output_node.inputs['Flow'])
 
     if not image_node is None and not flip_node is None:
         file_output_node.file_slots.new(INV_DISTORTION_MAP_NAME)
