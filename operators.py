@@ -275,7 +275,7 @@ class BAT_OT_import_camera_data(bpy.types.Operator):
 
         scene = context.scene
         # Read json file
-        filepath = scene.bat_properties.camera.calibration_file
+        filepath = os.path.abspath(scene.bat_properties.camera.calibration_file)
         if os.path.isfile(filepath):
             with open(filepath,'r') as f:
                 try:
