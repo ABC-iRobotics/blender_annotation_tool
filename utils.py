@@ -3,7 +3,7 @@ import bpy
 import json
 import numpy as np
 from enum import Enum
-from bpy.types import Collection, Material, World, Scene
+from bpy.types import Object, Collection, Material, World, Scene
 
 
 # -------------------------------
@@ -80,6 +80,22 @@ def find_parent_collection(root_collection: Collection, collection: Collection) 
             parent = find_parent_collection(child_collection, collection)
             if parent:
                 return parent
+
+
+def find_root(obj: Object) -> Object:
+    '''
+    Recursive function for finding the root object of nested (parented objects)
+
+    Args:
+        obj: The object for which the root parent is sought
+
+    Returns:
+        root: The root object
+    '''
+    if obj.parent is None:
+        return obj
+    else:
+        return find_root(obj.parent)
 
 
 def setup_compositor(scene: Scene) -> None:
@@ -375,29 +391,36 @@ def setup_bat_scene() -> tuple[set[str],str]:
         bat_scene.collection.children.link(new_collection)
 
         # Duplicate objects
-        for i, obj in enumerate([o for o in orig_collection.objects if hasattr(o.data, 'materials')]):
-            # Only add objects to BAT scene that have materials
-            obj_copy = obj.copy()
-            obj_copy.data = obj.data.copy()
-            obj_copy.pass_index = 100  # Pass index controls emission strength in the mask material (>100 for visualization)
-            new_collection.objects.link(obj_copy)
+        orig_coll_objects = [o for o in orig_collection.objects if hasattr(o, 'parent')]
+        root_objects = list({find_root(o) for o in orig_coll_objects})
 
-            # Remove all materials from the object
-            obj_copy.data.materials.clear()
+        for i, obj in enumerate(root_objects):
+            all_object = obj.children_recursive
+            all_object.insert(0, obj)
+            for part in all_object:
+                # Only add objects to BAT scene that have materials
+                if part.name in orig_collection.objects and hasattr(part.data, 'materials'):
+                    obj_copy = part.copy()
+                    obj_copy.data = part.data.copy()
+                    obj_copy.pass_index = 100  # Pass index controls emission strength in the mask material (>100 for visualization)
+                    new_collection.objects.link(obj_copy)
 
-            # Assign segmentation mask material
-            if obj_copy.data.materials:
-                obj_copy.data.materials[0] = mask_material
-            else:
-                obj_copy.data.materials.append(mask_material)
-        
-            # Set object color
-            color = list(classification_class.mask_color)
-            obj_copy.color = color
+                    # Remove all materials from the object
+                    obj_copy.data.materials.clear()
 
-            # For instances increase emission strength in the material so they can be distinguished
-            if classification_class.is_instances:
-                obj_copy.pass_index += i
+                    # Assign segmentation mask material
+                    if obj_copy.data.materials:
+                        obj_copy.data.materials[0] = mask_material
+                    else:
+                        obj_copy.data.materials.append(mask_material)
+            
+                    # Set object color
+                    color = list(classification_class.mask_color)
+                    obj_copy.color = color
+
+                    # For instances increase emission strength in the material so they can be distinguished
+                    if classification_class.is_instances:
+                        obj_copy.pass_index += i
 
     # Export class info
     res = export_class_info()
