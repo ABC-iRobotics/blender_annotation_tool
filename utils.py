@@ -382,6 +382,9 @@ def setup_bat_scene() -> tuple[set[str],str]:
             obj_copy.pass_index = 100  # Pass index controls emission strength in the mask material (>100 for visualization)
             new_collection.objects.link(obj_copy)
 
+            # Remove all materials from the object
+            obj_copy.data.materials.clear()
+
             # Assign segmentation mask material
             if obj_copy.data.materials:
                 obj_copy.data.materials[0] = mask_material
