@@ -5,9 +5,58 @@ import threading
 import socketserver
 import atexit
 from bpy.app.handlers import persistent
-from bpy.types import Scene
+from bpy.types import Scene, AddonPreferences, Context
+from bpy.props import BoolProperty, IntProperty
 
 from . import utils
+
+
+def update_enable_remote_interface(self, context: Context) -> None:
+    '''Enable/Disable HTTP server
+    '''
+    if context.preferences.addons[__package__].preferences.http_enable:
+        BATRemoteControl.start_server()
+    else:
+        BATRemoteControl.stop_server()
+
+
+def update_http_server_port(self, context: Context) -> None:
+    '''Restart the remote HTTP server with new port
+    '''
+    BATRemoteControl.restart_server()
+
+
+class BATRemoteControlPreferences(AddonPreferences):
+    bl_idname = __package__
+
+    http_enable: BoolProperty(
+        name="Enable BAT HTTP Remote Interface",
+        default=True,
+        update = update_http_server_port
+    )
+
+    http_port: IntProperty(
+        name="BAT HTTP Remote Interface port",
+        default=12345,
+        min = 1024,
+        soft_min = 1024,
+        max = 49151,
+        soft_max = 49151,
+        update = update_http_server_port
+    )
+
+    def draw(self, context: Context) -> None:
+        '''
+        Draw BAT HTTP Remote Interface preferences
+
+        Args:
+            context : Current context
+        '''
+        layout = self.layout
+        layout.label(text="BAT HTTP Remote Interface")
+        layout.prop(self, "http_enable")
+        layout.prop(self, "http_port")
+
 
 class BATRequestHandler(http.server.BaseHTTPRequestHandler):
     '''HTTP Request Handler for BAT
@@ -145,9 +194,11 @@ class BATRemoteControl:
 
     @classmethod
     def start_server(cls):
-        if cls.server is None:
+        preferences = bpy.context.preferences
+        addon_prefs = preferences.addons[__package__].preferences
+        if cls.server is None and addon_prefs.http_enable:
             host = '0.0.0.0'
-            port = 12345
+            port = addon_prefs.http_port
             socketserver.TCPServer.allow_reuse_address = True
             cls.server = socketserver.TCPServer((host, port), BATRequestHandler)
             cls.server_thread = threading.Thread(target=cls.server.serve_forever)
@@ -163,6 +214,11 @@ class BATRemoteControl:
             cls.server_thread.join()
             cls.server = None
             print('BAT HTTP server stopped.')
+
+    @classmethod
+    def restart_server(cls):
+        cls.stop_server()
+        cls.start_server()
 
 
 # -------------------------------
@@ -199,10 +255,16 @@ def onBlenderClose() -> None:
 # -------------------------------
 # Register/Unregister
 
+classes = [
+    BATRemoteControlPreferences
+    ]
+
 def register() -> None:
     '''
     Start HTTP Server
     '''
+    for cls in classes:
+        bpy.utils.register_class(cls)
     bpy.app.handlers.depsgraph_update_pre.append(onRegister)
     bpy.app.handlers.load_post.append(onFileLoaded)
     BATRemoteControl.start_server()
@@ -216,6 +278,8 @@ def unregister() -> None:
     if onFileLoaded in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(onFileLoaded)
     BATRemoteControl.stop_server()
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
 
 if __name__ == "__main__":
