@@ -1,4 +1,5 @@
 import json
+import logging
 import http.server
 import bpy
 import threading
@@ -11,8 +12,15 @@ from bpy.props import BoolProperty, IntProperty
 from . import utils
 
 
+# -------------------------------
+# Preferences
+
 def update_enable_remote_interface(self, context: Context) -> None:
-    '''Enable/Disable HTTP server
+    '''
+    Enable/Disable HTTP server
+
+    Args:
+        context : Current context
     '''
     if context.preferences.addons[__package__].preferences.http_enable:
         BATRemoteControl.start_server()
@@ -21,12 +29,19 @@ def update_enable_remote_interface(self, context: Context) -> None:
 
 
 def update_http_server_port(self, context: Context) -> None:
-    '''Restart the remote HTTP server with new port
+    '''
+    Restart the remote HTTP server with new port
+
+    Args:
+        context : Current context
     '''
     BATRemoteControl.restart_server()
 
 
 class BATRemoteControlPreferences(AddonPreferences):
+    ''' Addon Preferences for the HTTP Remote Interface
+    '''
+
     bl_idname = __package__
 
     http_enable: BoolProperty(
@@ -64,11 +79,16 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
     Can be used to get/set pose of objects, camera parameters and current frame
     '''
     
-    def _send_response(self, message):
+    def _send_response(self, message: dict[str, str]) -> None:
+        '''Send response json
+        '''
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps(message).encode('utf-8'))
+        try:
+            self.wfile.write(json.dumps(message).encode('utf-8'))
+        except Exception as e:
+            self.wfile.write(json.dumps({'status':'failed', 'message':str(e)}).encode('utf-8'))
     
 
     def do_POST(self) -> None:
@@ -77,10 +97,15 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
         # Parse request data
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length).decode('utf-8')
-        data = json.loads(post_data)
-        
+        data = {}
         status = 'failed'
         message = ''
+
+        try:
+            data = json.loads(post_data)
+        except Exception as e:
+            message = str(e)
+            data = {}
         
         # Handle camera parameters
         if 'camera' in data:
@@ -158,6 +183,8 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
             #     message += f'Saved rendered annotations for frame ({scene.frame_current}) to {scene.render.filepath}, '
             
         # Send response back to client
+        if not message:
+            message = f"The request doesn't contain any valid keys. Valid keys are 'camera', 'pose', 'frame' and 'render. Got keys: {','.join(list(data.keys()))}"
         response = {'status': status, 'message': message}
         self._send_response(response)
 
@@ -171,16 +198,19 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
 
         if query == "object":
             obj_name = self.path.split('?name=')[-1] if '?name=' in self.path else None
-            obj = bpy.data.objects.get(obj_name) if obj_name else None
-            if obj:
-                response = {
-                    "status": "success",
-                    "object": obj_name,
-                    "location": list(obj.location),
-                    "rotation": list(obj.rotation_euler)
-                }
+            if obj_name:
+                obj = bpy.data.objects.get(obj_name)
+                if obj:
+                    response = {
+                        "status": "success",
+                        "object": obj_name,
+                        "location": list(obj.location),
+                        "rotation": list(obj.rotation_euler)
+                    }
+                else:
+                    response = {"status": "failed", "message": f"Object '{obj_name}' not found."}
             else:
-                response = {"status": "failed", "message": f"Object '{obj_name}' not found."}
+                response = {"status": "failed", "message": "Object name not provided."}
 
         elif query == "frame":
             frame = bpy.context.scene.frame_current
@@ -204,7 +234,7 @@ class BATRemoteControl:
             cls.server_thread = threading.Thread(target=cls.server.serve_forever)
             cls.server_thread.daemon = True
             cls.server_thread.start()
-            print(f'BAT HTTP server started on http://{host}:{port}')
+            logging.info(f'BAT HTTP server started on http://{host}:{port}')
 
     @classmethod
     def stop_server(cls):
@@ -213,7 +243,7 @@ class BATRemoteControl:
             cls.server.server_close()
             cls.server_thread.join()
             cls.server = None
-            print('BAT HTTP server stopped.')
+            logging.info('BAT HTTP server stopped.')
 
     @classmethod
     def restart_server(cls):
