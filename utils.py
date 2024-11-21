@@ -451,7 +451,7 @@ def remove_bat_scene() -> set[str]:
     return {'FINISHED'}
 
 
-def render_scene(scene: Scene, write_still: bool=False) -> None:
+def render_scene(scene: Scene|None, write_still: bool=False) -> None:
     '''
     Render scene
 
@@ -459,6 +459,9 @@ def render_scene(scene: Scene, write_still: bool=False) -> None:
         scene : Scene to render
         write_still: Save render result
     '''
+    if scene is None:
+        scene = bpy.context.scene
+
     # Set file name
     render_filepath_temp = scene.render.filepath
     scene.render.filepath = scene.render.frame_path(frame=scene.frame_current)
@@ -485,6 +488,43 @@ def bat_render_annotation() -> tuple[set[str], str]:
     message = ''
 
     return (res, message)
+
+
+def setup_camera(cam_data: dict[str, float|int]) -> None:
+    '''Setup BAT camera, given a dict containing camera data
+
+    Args
+        cam_data: dict containing camera data
+    '''
+    scene = bpy.context.scene
+    scene.bat_properties.camera.sensor_width = cam_data.get('sensor_width', scene.bat_properties.camera.sensor_width)
+    scene.bat_properties.camera.fx = cam_data.get('fx', scene.bat_properties.camera.fx)
+    scene.bat_properties.camera.fy = cam_data.get('fy', scene.bat_properties.camera.fy)
+    scene.bat_properties.camera.px = cam_data.get('cx', scene.bat_properties.camera.px)
+    scene.bat_properties.camera.py = cam_data.get('cy', scene.bat_properties.camera.py)
+    scene.bat_properties.camera.p1 = cam_data.get('p1', scene.bat_properties.camera.p1)
+    scene.bat_properties.camera.p2 = cam_data.get('p2', scene.bat_properties.camera.p2)
+    scene.bat_properties.camera.k1 = cam_data.get('k1', scene.bat_properties.camera.k1)
+    scene.bat_properties.camera.k2 = cam_data.get('k2', scene.bat_properties.camera.k2)
+    scene.bat_properties.camera.k3 = cam_data.get('k3', scene.bat_properties.camera.k3)
+    scene.bat_properties.camera.k4 = cam_data.get('k4', scene.bat_properties.camera.k4)
+    scene.bat_properties.camera.upscale_factor = cam_data.get('upscale_factor', scene.bat_properties.camera.upscale_factor)
+
+
+def set_object_pose(object_name: str, location: list[float]|None=None, rotation: list[float]|None=None) -> None:
+    '''Pose given object
+
+    Args
+        object_name: The name of the object
+        location: List of object coordinates (x,y,z)
+        rotation: Rotation of the object, using Euler angles measured in radians
+    '''
+    obj = bpy.data.objects.get(object_name)
+    if obj:
+        if location:
+            obj.location = location
+        if rotation:
+            obj.rotation_euler = rotation
 
 
 def distort(vec: np.array, intr: np.array, distortion_params:np.array) -> tuple[np.array,np.array]:

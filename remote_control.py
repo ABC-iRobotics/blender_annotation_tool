@@ -1,15 +1,71 @@
 import json
+import time
 import logging
 import http.server
+from typing import Callable
 import bpy
 import threading
+import queue
 import socketserver
 import atexit
 from bpy.app.handlers import persistent
 from bpy.types import Scene, AddonPreferences, Context
 from bpy.props import BoolProperty, IntProperty
+from typing import Any
 
 from . import utils
+
+# -------------------------------
+# Timer for executing non thread-safe blender API calls in the main thread
+
+
+TIMER_FREQUENCY = 1.0  # Re-run timer every second
+REQUEST_TIMEOUT = 10  # Timeout seconds for handling GET requests
+
+
+execution_queue = queue.Queue()  # Queue to hold functions for execution in Blender's main thread
+result_queue = queue.Queue()  # Queue to hold function results
+
+
+def run_in_main_thread(function: Callable[[],Any]) -> None:
+    '''Function to enqueue tasks for main thread execution
+
+    Args
+        function: Function to be executed
+    '''
+    execution_queue.put(function)
+
+
+def execute_queued_functions() -> float:
+    '''Timer function to execute queued tasks in Blender's main thread
+
+    Returns
+        The number of seconds after which the function will be executed again
+    '''
+    while not execution_queue.empty():
+        function = execution_queue.get()
+        try:
+            logging.info(f"Executing function {function}")
+            function()
+        except Exception as e:
+            logging.error(f"Error executing function {function} in main thread: {e}")
+    return TIMER_FREQUENCY  # Run the function again after TIMER_FREQUENCY seconds
+
+
+def register_timer_function() -> None:
+    '''Register the timer function in Blender
+    '''
+    if not bpy.app.timers.is_registered(execute_queued_functions):
+        bpy.app.timers.register(execute_queued_functions)
+        logging.info('Registered queue executor')
+
+
+def unregister_timer_function() -> None:
+    '''Unregister the timer function in Blender
+    '''
+    if bpy.app.timers.is_registered(execute_queued_functions):
+        bpy.app.timers.unregister(execute_queued_functions)
+        logging.info('Unregistered queue executor')
 
 
 # -------------------------------
@@ -23,9 +79,11 @@ def update_enable_remote_interface(self, context: Context) -> None:
         context : Current context
     '''
     if context.preferences.addons[__package__].preferences.http_enable:
+        register_timer_function()
         BATRemoteControl.start_server()
     else:
         BATRemoteControl.stop_server()
+        unregister_timer_function()
 
 
 def update_http_server_port(self, context: Context) -> None:
@@ -47,7 +105,7 @@ class BATRemoteControlPreferences(AddonPreferences):
     http_enable: BoolProperty(
         name="Enable BAT HTTP Remote Interface",
         default=True,
-        update = update_http_server_port
+        update = update_enable_remote_interface
     )
 
     http_port: IntProperty(
@@ -72,6 +130,32 @@ class BATRemoteControlPreferences(AddonPreferences):
         layout.prop(self, "http_enable")
         layout.prop(self, "http_port")
 
+
+# -------------------------------
+# Helper functions
+
+def get_object_pose(object_name: str|None) -> None:
+    '''Get pose of a given object
+
+    Args
+        object_name: Name of the object
+    '''
+    pose = {}
+    obj = bpy.data.objects.get(object_name)
+    if obj:
+        pose['location'] = list(obj.location)
+        pose['rotation'] = list(obj.rotation_euler)
+    result_queue.put(pose)
+
+
+def get_frame_num() -> None:
+    '''Get frame number
+    '''
+    result_queue.put(bpy.context.scene.frame_current)
+
+
+# -------------------------------
+# HTTP Interface
 
 class BATRequestHandler(http.server.BaseHTTPRequestHandler):
     '''HTTP Request Handler for BAT
@@ -104,26 +188,15 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
         try:
             data = json.loads(post_data)
         except Exception as e:
+            # Invalid JSON
             message = str(e)
             data = {}
         
         # Handle camera parameters
         if 'camera' in data:
             cam_data = data['camera']
-            scene = bpy.context.scene
-            scene.bat_properties.camera.sensor_width = cam_data.get('sensor_width', scene.bat_properties.camera.sensor_width)
-            scene.bat_properties.camera.fx = cam_data.get('fx', scene.bat_properties.camera.fx)
-            scene.bat_properties.camera.fy = cam_data.get('fy', scene.bat_properties.camera.fy)
-            scene.bat_properties.camera.px = cam_data.get('cx', scene.bat_properties.camera.px)
-            scene.bat_properties.camera.py = cam_data.get('cy', scene.bat_properties.camera.py)
-            scene.bat_properties.camera.p1 = cam_data.get('p1', scene.bat_properties.camera.p1)
-            scene.bat_properties.camera.p2 = cam_data.get('p2', scene.bat_properties.camera.p2)
-            scene.bat_properties.camera.k1 = cam_data.get('k1', scene.bat_properties.camera.k1)
-            scene.bat_properties.camera.k2 = cam_data.get('k2', scene.bat_properties.camera.k2)
-            scene.bat_properties.camera.k3 = cam_data.get('k3', scene.bat_properties.camera.k3)
-            scene.bat_properties.camera.k4 = cam_data.get('k4', scene.bat_properties.camera.k4)
-            scene.bat_properties.camera.upscale_factor = cam_data.get('upscale_factor', scene.bat_properties.camera.upscale_factor)
-            bpy.ops.bat.generate_distortion_map()
+            run_in_main_thread(lambda: utils.setup_camera(cam_data))
+            run_in_main_thread(bpy.ops.bat.generate_distortion_map)
             status = 'success'
             message += 'Updated camera parameters, '
         
@@ -132,55 +205,33 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
             obj_data = data['pose']
             obj_name = obj_data.get('name')
             if obj_name:
-                obj = bpy.data.objects.get(obj_name)
-                if obj:
-                    obj.location = obj_data.get('location', obj.location)
-                    obj.rotation_euler = obj_data.get('rotation', obj.rotation_euler)
-                    status = 'success'
-                    message += f'Updated pose of {obj_name}, '
+                run_in_main_thread(lambda: utils.set_object_pose(obj_name, obj_data.get('location'), obj_data.get('rotation')))
+                status = 'success'
+                message += f'Updated pose of {obj_name}, '
         
         # Handle frame update
         if 'frame' in data:
             frame = data['frame']
-            bpy.context.scene.frame_set(frame)
+            run_in_main_thread(lambda: bpy.context.scene.frame_set(frame))
             status = 'success'
             message += f'Set frame to {frame}, '
 
         # Handle render request
         if 'render' in data:
-            scene = bpy.context.scene
             render_data = data['render']
 
             render = render_data.get('render', False)
             annotation = render_data.get('annotation', False)
             
-            # Deselect all objects
-            for object in bpy.data.objects:
-                object.select_set(False)
-            
             if render:
-                utils.render_scene(scene, True)
+                run_in_main_thread(lambda: utils.render_scene(None, True)) 
                 status = 'success'
-                message += f'Saved rendered frame ({scene.frame_current}) to {scene.render.frame_path(frame=scene.frame_current)}, '
+                message += f'Rendered frame, '
 
-            # if annotation:
-            #     utils.setup_bat_scene()
-            #     bat_scene = bpy.data.scenes.get(utils.BAT_SCENE_NAME)
-            #     bat_scene.bat_properties.save_annotation = True
-            #     # Set file name
-            #     render_filepath_temp = bat_scene.render.filepath
-            #     bat_scene.render.filepath = bat_scene.render.frame_path(frame=bat_scene.frame_current)
-                    
-            #     # Render image
-            #     bpy.ops.render.render(write_still=False, scene=scene.name)
-
-            #     # Reset output path
-            #     bat_scene.render.filepath = render_filepath_temp
-            #     bat_scene.bat_properties.save_annotation = False
-            #     # utils.remove_bat_scene()
-
-            #     status = 'success'
-            #     message += f'Saved rendered annotations for frame ({scene.frame_current}) to {scene.render.filepath}, '
+            if annotation:
+                run_in_main_thread(utils.bat_render_annotation)
+                status = 'success'
+                message += f'Saved rendered annotations, '
             
         # Send response back to client
         if not message:
@@ -192,38 +243,61 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         '''Handle GET requests
         '''
+        # Parse query
         query = self.path.split('?')[0].strip('/')
 
         response = {'status': 'failed'}
 
+        # Handle request for object pose
         if query == "object":
             obj_name = self.path.split('?name=')[-1] if '?name=' in self.path else None
             if obj_name:
-                obj = bpy.data.objects.get(obj_name)
-                if obj:
+                run_in_main_thread(lambda: get_object_pose(obj_name))
+                start_time = time.time()
+                while result_queue.empty():
+                    if time.time() - start_time > REQUEST_TIMEOUT:
+                        self.send_error(500, "Timeout waiting for Blender response")
+                        return
+                
+                # Retrieve the response from the result queue
+                response_content = result_queue.get()
+                if response_content:
                     response = {
                         "status": "success",
                         "object": obj_name,
-                        "location": list(obj.location),
-                        "rotation": list(obj.rotation_euler)
+                        "location": response_content['location'],
+                        "rotation": response_content['rotation']
                     }
                 else:
                     response = {"status": "failed", "message": f"Object '{obj_name}' not found."}
             else:
                 response = {"status": "failed", "message": "Object name not provided."}
 
+        # Handle request for frame number
         elif query == "frame":
-            frame = bpy.context.scene.frame_current
-            response = {"status": "success", "frame": frame}
+            run_in_main_thread(get_frame_num)
+            start_time = time.time()
+            while result_queue.empty():
+                if time.time() - start_time > REQUEST_TIMEOUT:
+                    self.send_error(500, "Timeout waiting for Blender response")
+                    return
+                
+            # Retrieve the response from the result queue
+            response_content = result_queue.get()
+            response = {"status": "success", "frame": response_content}
         
         self._send_response(response)
     
 
 class BATRemoteControl:
+    '''Class for BAT HTTP Interface
+    '''
     server = None
 
     @classmethod
     def start_server(cls):
+        '''Start the HTTP server
+        '''
         preferences = bpy.context.preferences
         addon_prefs = preferences.addons[__package__].preferences
         if cls.server is None and addon_prefs.http_enable:
@@ -234,10 +308,12 @@ class BATRemoteControl:
             cls.server_thread = threading.Thread(target=cls.server.serve_forever)
             cls.server_thread.daemon = True
             cls.server_thread.start()
-            logging.info(f'BAT HTTP server started on http://{host}:{port}')
+            logging.info(f'BAT HTTP server started at http://{host}:{port}')
 
     @classmethod
     def stop_server(cls):
+        '''Stop the HTTP server
+        '''
         if cls.server:
             cls.server.shutdown()
             cls.server.server_close()
@@ -247,6 +323,8 @@ class BATRemoteControl:
 
     @classmethod
     def restart_server(cls):
+        '''Restart the HTTP server
+        '''
         cls.stop_server()
         cls.start_server()
 
@@ -256,11 +334,12 @@ class BATRemoteControl:
 
 def onRegister(scene: Scene) -> None:
     '''
-    Setup default class upon registering the addon
+    Setup HTTP server and timer when registering addon
 
     Args:
         scene : Current scene
     '''
+    register_timer_function()
     BATRemoteControl.start_server()
 
 
@@ -272,7 +351,9 @@ def onFileLoaded(scene: Scene) -> None:
     Args:
         scene : Current scene 
     '''
+    register_timer_function()
     BATRemoteControl.start_server()
+
 
 @atexit.register
 def onBlenderClose() -> None:
@@ -280,6 +361,7 @@ def onBlenderClose() -> None:
     Handler to stop the server when Blender shuts down
     '''
     BATRemoteControl.stop_server()
+    unregister_timer_function()
 
 
 # -------------------------------
@@ -295,14 +377,17 @@ def register() -> None:
     '''
     for cls in classes:
         bpy.utils.register_class(cls)
+    register_timer_function()
     bpy.app.handlers.depsgraph_update_pre.append(onRegister)
     bpy.app.handlers.load_post.append(onFileLoaded)
     BATRemoteControl.start_server()
+
 
 def unregister() -> None:
     '''
     Stop HTTP Server
     '''
+    unregister_timer_function()
     if onRegister in bpy.app.handlers.depsgraph_update_pre:
         bpy.app.handlers.depsgraph_update_pre.remove(onRegister)
     if onFileLoaded in bpy.app.handlers.load_post:
