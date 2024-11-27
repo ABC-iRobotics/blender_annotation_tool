@@ -571,6 +571,88 @@ def distort(vec: np.array, intr: np.array, distortion_params:np.array) -> tuple[
     return (image_x,image_y)
 
 
+def interpolate(x: np.ndarray, mask: np.ndarray, flip: int, falloff: int = 1) -> np.ndarray:
+    '''Interpolate missing values in x following a meandering pattern
+
+    Args
+        x: 2D NumPy array with missing/incorrect values (shape: (W,H), dtype: int or float)
+        mask: 2D NumPy array telling which values of x to use for interpolation (shape: (W,H) must match with x.shape, dtype: bool)
+            "True" elements signal that the corresponding values in x should be kept
+        flip: Decides the direction of the meandering pattern (1=forward, 0=backward)
+        falloff: Decides how much proximity influences interpolation (1=linear, 2=quadratic, ...)
+    
+    Returns
+        The array with missing values filled. If a value cannot be determined (at the beginning and end of meander) it will be np.nan
+    '''
+    # Make a copy of the arrays that can be modified
+    x_copy = np.copy(x)
+    mask_copy = np.copy(mask)
+
+    # Flip every second row starting from "flip", so the arrays can be flattened in a meander pattern
+    x_copy[flip::2, :] = x_copy[flip::2, ::-1]
+    mask_copy[flip::2, :] = mask_copy[flip::2, ::-1]
+
+    # Flatten the arrays
+    x_copy = x_copy.flatten()
+    mask_copy = mask_copy.flatten()
+
+    # Get indices where the mask is "True" and create an array containing all possible indices (xs)
+    ind = np.where(mask_copy)[0]
+    xs = np.arange(x_copy.size)
+
+    # Get interpolated values at "xs", given the values in the flattened array (x_copy) at "ind"
+    # Make values that could not be interpolated np.nan and reshape the resulted array
+    inter = np.reshape(np.interp(xs,ind,x_copy[ind], left=np.nan, right=np.nan), x.shape)
+
+    # Get closest left and right elements of "ind" for each element in xs
+    l = np.insert(ind,ind.size,ind[-1])[np.searchsorted(ind,xs,side='left')]
+    r = np.insert(ind,0,ind[0])[np.searchsorted(ind,xs,side='right')]
+
+    # Calculate minimum distance of elements in "xs" from elements in "ind"
+    # Use 1/(dist+1) to create weights
+    # Reshape the resulted array and apply falloff
+    weights = np.power(np.reshape(1/(np.min(np.stack((np.abs(xs-l),np.abs(xs-r))),axis=0)+1),x.shape), falloff)
+    
+    # Flip every second row starting from "flip", so the array elements correspond to elements in "x"
+    inter[flip::2, :] = inter[flip::2, ::-1]
+    weights[flip::2, :] = weights[flip::2, ::-1]
+
+    return inter, weights
+
+
+def fill_missing_values(x: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    '''Fill missing elements in x by applying the meandering interpolation in all four directions
+
+    Args
+        x: 2D NumPy array with missing/incorrect values (shape: (W,H), dtype: int or float)
+        mask: 2D NumPy array telling which values of x to use for interpolation (shape: (W,H) must match with x.shape, dtype: bool)
+            "True" elements signal that the corresponding values in x should be kept
+    
+    Returns
+        The array with missing values filled.
+    '''
+    # Apply the meandering interpolation forward and backward, going row-by-row
+    i1,w1 = interpolate(x,mask,0)
+    i2,w2 = interpolate(x,mask,1)
+
+    # Apply the meandering interpolation forward and backward, going column-by-column
+    i3,w3 = interpolate(x.T,mask.T,0)
+    i4,w4 = interpolate(x.T,mask.T,1)
+
+    # Transpose the results so the align with i1,i2, and w1,w2
+    i3 = i3.T
+    w3 = w3.T
+    i4 = i4.T
+    w4 = w4.T
+
+    # Stack all interpolated values and associated weights
+    inter = np.stack((i1,i2,i3,i4),axis=-1)
+    weights = np.stack((w1,w2,w3,w4), axis=-1)
+
+    # Return weighted average, ignoring np.nan values
+    return np.nansum(inter*weights, axis=-1)/np.nansum(weights, axis=-1)
+
+
 def generate_inverse_distortion_map(width: int, height: int, intr: np.array, distortion_params: np.array, upscale_factor: int) -> np.array:
     '''
     Generates an inverse distortion map for fast image distortion lookup
@@ -603,5 +685,7 @@ def generate_inverse_distortion_map(width: int, height: int, intr: np.array, dis
 
     inv_distortion_map[distorted_ys,distorted_xs] = coords
     changed_items[distorted_ys,distorted_xs] = 1
+    inv_distortion_map[:,:,0] = fill_missing_values(inv_distortion_map[:,:,0],changed_items.astype(bool)[:,:,0])
+    inv_distortion_map[:,:,1] = fill_missing_values(inv_distortion_map[:,:,1],changed_items.astype(bool)[:,:,0])
     inv_distortion_map = np.append(inv_distortion_map, changed_items, axis=2)
     return inv_distortion_map
