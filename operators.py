@@ -141,13 +141,25 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
             dist_map_img = bpy.data.images.new(utils.INV_DISTORTION_MAP_NAME, width, height, alpha=True, float_buffer=True, is_data=True)
         else:
             dist_map_img = bpy.data.images[utils.INV_DISTORTION_MAP_NAME]
+            if dist_map_img.size[0] != width or dist_map_img.size[1] != height:
+                bpy.data.images.remove(dist_map_img, do_unlink=True)
+                dist_map_img = bpy.data.images.new(utils.INV_DISTORTION_MAP_NAME, width, height, alpha=True, float_buffer=True, is_data=True)
         dist_map_img.pixels = distortion_map.flatten()
+
+        # Create clip image
+        clip_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip.png')
+        clip_img = bpy.data.images.new('BAT_clip', width, height, alpha=False, float_buffer=True, is_data=True)
+        clip_img.pixels = np.zeros((height,width,3)).flatten()
+        clip_img.filepath_raw = clip_image_path
+        clip_img.save()
+        bpy.data.images.remove(clip_img, do_unlink=True)
 
         # Create a movieclip for using camera lens distortion from compositor
         mov_clip = bpy.data.movieclips.get(utils.BAT_MOVIE_CLIP_NAME)
-        if mov_clip is None:
-            mov_clip = bpy.data.movieclips.load(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip.png'))
-            mov_clip.name = utils.BAT_MOVIE_CLIP_NAME
+        if not mov_clip is None:
+            bpy.data.movieclips.remove(mov_clip, do_unlink=True)
+        mov_clip = bpy.data.movieclips.load(clip_image_path)
+        mov_clip.name = utils.BAT_MOVIE_CLIP_NAME
         mov_clip.tracking.camera.distortion_model = 'BROWN'
         mov_clip.tracking.camera.sensor_width = scene.bat_properties.camera.sensor_width
         fx = scene.bat_properties.camera.fx
@@ -187,6 +199,10 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
 
             bat_distort_group.links.new(group_inputs.outputs['Image'], movie_distortion_node.inputs['Image'])
             bat_distort_group.links.new(movie_distortion_node.outputs['Image'], group_outputs.inputs['Image'])
+        else:
+            # Re-select the movie clip because we re-create it every time we generate
+            movie_distortion_node = bat_distort_group.nodes.get('Movie Distortion')
+            movie_distortion_node.clip = bpy.data.movieclips[utils.BAT_MOVIE_CLIP_NAME]
 
 
         # Add to compositor if compositor workspace is empty
@@ -228,8 +244,8 @@ class BAT_OT_distort_image(bpy.types.Operator):
         # Read distortion map
         dist_map_img = bpy.data.images.get(utils.INV_DISTORTION_MAP_NAME)
         if not dist_map_img is None:
-            w, h = bpy.data.images[utils.INV_DISTORTION_MAP_NAME].size
-            dmap = np.array(bpy.data.images[utils.INV_DISTORTION_MAP_NAME].pixels[:], dtype=np.float32)
+            w, h = dist_map_img.size
+            dmap = np.array(dist_map_img.pixels[:], dtype=np.float32)
             dmap = np.reshape(dmap, (h, w, 4))[:,:,:]
             ys = dmap[:,:,0].flatten().astype(int)
             xs = dmap[:,:,1].flatten().astype(int)
@@ -237,20 +253,26 @@ class BAT_OT_distort_image(bpy.types.Operator):
             # Read image to be distorted
             viewer = bpy.data.images.get('Viewer Node')
             if not viewer is None:
-                w, h = viewer.size
-                img = np.array(viewer.pixels[:], dtype=np.float32)
-                img = np.reshape(img, (h, w, 4))[:,:,:]
-                img = img[:,:,0:4]
+                if w == viewer.size[0] and h == viewer.size[1]:
+                    img = np.array(viewer.pixels[:], dtype=np.float32)
+                    img = np.reshape(img, (h, w, 4))[:,:,:]
+                    img = img[:,:,0:4]
 
-                # Distort image
-                dimg = np.reshape(img[ys,xs],(h,w,4))
+                    # Distort image
+                    dimg = np.reshape(img[ys,xs],(h,w,4))
 
-                # Save it in an image
-                if not 'Distorted Image' in bpy.data.images:
-                    dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
+                    # Save it in an image
+                    if not 'Distorted Image' in bpy.data.images:
+                        dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
+                    else:
+                        dist_img = bpy.data.images['Distorted Image']
+                        if dist_img.size[0] != w or dist_img.size[1] != h:
+                            bpy.data.images.remove(dist_img, do_unlink=True)
+                            dist_img = bpy.data.images.new('Distorted Image', w, h, alpha=True, float_buffer=True, is_data=True)
+                    dist_img.pixels = dimg.flatten()
                 else:
-                    dist_img = bpy.data.images['Distorted Image']
-                dist_img.pixels = dimg.flatten()
+                    self.report({'WARNING'}, 'DistortionMap and Viewer Node image sizes do not match! Have you updated the DistortionMap and re-rendered the scene with the new resolution?')
+                    return {'CANCELLED'}
 
         return {'FINISHED'}
 
