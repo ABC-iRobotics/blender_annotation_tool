@@ -127,14 +127,13 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
         width = int(scene.render.resolution_x * (scene.render.resolution_percentage/100))
         height = int(scene.render.resolution_y * (scene.render.resolution_percentage/100))
 
-        upscale_factor = scene.bat_properties.camera.upscale_factor  # Used for upscaling to achieve subpixel sampling and to avoid missing values in the map
 
         # Get camera parameters
         intr = [cam.fx,cam.fy,cam.px,cam.py]
         distort = [cam.p1,cam.p2,cam.k1,cam.k2,cam.k3,cam.k4]
 
         # Generate distorion map
-        distortion_map = utils.generate_inverse_distortion_map(width, height, intr, distort, upscale_factor)
+        distortion_map = utils.generate_inverse_distortion_map(width, height, intr, distort)
         distortion_map = np.append(distortion_map, np.ones((height,width,1)), axis=2)
 
         # Save distortion map as image

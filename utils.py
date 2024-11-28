@@ -508,7 +508,6 @@ def setup_camera(cam_data: dict[str, float|int]) -> None:
     scene.bat_properties.camera.k2 = cam_data.get('k2', scene.bat_properties.camera.k2)
     scene.bat_properties.camera.k3 = cam_data.get('k3', scene.bat_properties.camera.k3)
     scene.bat_properties.camera.k4 = cam_data.get('k4', scene.bat_properties.camera.k4)
-    scene.bat_properties.camera.upscale_factor = cam_data.get('upscale_factor', scene.bat_properties.camera.upscale_factor)
 
 
 def set_object_pose(object_name: str, location: list[float]|None=None, rotation: list[float]|None=None) -> None:
@@ -653,7 +652,7 @@ def fill_missing_values(x: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return np.nansum(inter*weights, axis=-1)/np.nansum(weights, axis=-1)
 
 
-def generate_inverse_distortion_map(width: int, height: int, intr: np.array, distortion_params: np.array, upscale_factor: int) -> np.array:
+def generate_inverse_distortion_map(width: int, height: int, intr: np.array, distortion_params: np.array) -> np.array:
     '''
     Generates an inverse distortion map for fast image distortion lookup
 
@@ -672,16 +671,16 @@ def generate_inverse_distortion_map(width: int, height: int, intr: np.array, dis
     changed_items = np.zeros((height,width,1))
 
     # Create image coordinates matrix
-    coords = np.moveaxis(np.mgrid[0:height*upscale_factor,0:width*upscale_factor],[0],[2])/upscale_factor
+    coords = np.moveaxis(np.mgrid[0:height,0:width],[0],[2])
 
     # Get distorted coordinates
-    distorted_xs, distorted_ys = distort(np.reshape(np.moveaxis(coords, [2],[0]), (2,height*upscale_factor*width*upscale_factor)), intr, distortion_params)
+    distorted_xs, distorted_ys = distort(np.reshape(np.moveaxis(coords, [2],[0]), (2,height*width)), intr, distortion_params)
 
     # Filter distorted an undistorted coordinates (only leave te ones that are inside the image after distortion)
     valid_indices = np.logical_and(np.logical_and(distorted_xs>=0,distorted_xs<width),np.logical_and(distorted_ys>=0,distorted_ys<height))
     distorted_xs = distorted_xs[valid_indices].astype(int)
     distorted_ys = distorted_ys[valid_indices].astype(int)
-    coords = np.reshape(coords, (height*upscale_factor*width*upscale_factor, 2))[valid_indices]
+    coords = np.reshape(coords, (height*width, 2))[valid_indices]
 
     inv_distortion_map[distorted_ys,distorted_xs] = coords
     changed_items[distorted_ys,distorted_xs] = 1
