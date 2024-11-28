@@ -106,10 +106,10 @@ class BAT_PT_camera_panel(bpy.types.Panel):
         row.prop(context.scene.bat_properties.camera, 'fy', text='')
         row = box.row(align=True)
         row.label(text='Optical Center X')
-        row.prop(context.scene.bat_properties.camera, 'px', text='')
+        row.prop(context.scene.bat_properties.camera, 'cx', text='')
         row = box.row(align=True)
         row.label(text='Optical Center Y')
-        row.prop(context.scene.bat_properties.camera, 'py', text='')
+        row.prop(context.scene.bat_properties.camera, 'cy', text='')
 
         # -------------------------------
         # Lens distortion parameters

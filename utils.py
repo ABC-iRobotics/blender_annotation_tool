@@ -500,8 +500,8 @@ def setup_camera(cam_data: dict[str, float|int]) -> None:
     scene.bat_properties.camera.sensor_width = cam_data.get('sensor_width', scene.bat_properties.camera.sensor_width)
     scene.bat_properties.camera.fx = cam_data.get('fx', scene.bat_properties.camera.fx)
     scene.bat_properties.camera.fy = cam_data.get('fy', scene.bat_properties.camera.fy)
-    scene.bat_properties.camera.px = cam_data.get('cx', scene.bat_properties.camera.px)
-    scene.bat_properties.camera.py = cam_data.get('cy', scene.bat_properties.camera.py)
+    scene.bat_properties.camera.cx = cam_data.get('cx', scene.bat_properties.camera.cx)
+    scene.bat_properties.camera.cy = cam_data.get('cy', scene.bat_properties.camera.cy)
     scene.bat_properties.camera.p1 = cam_data.get('p1', scene.bat_properties.camera.p1)
     scene.bat_properties.camera.p2 = cam_data.get('p2', scene.bat_properties.camera.p2)
     scene.bat_properties.camera.k1 = cam_data.get('k1', scene.bat_properties.camera.k1)
@@ -536,7 +536,7 @@ def distort(vec: np.array, intr: np.array, distortion_params:np.array) -> tuple[
             should hold the y coordinates (along height) and the second element of the first dimension should contain
             the x coordinates (along width). The [0,0] point should be upper left corner (so the first element of both
             the y and the x coordinates should be 0)
-        intr: NumPy array containing camera intrinsics (fx,fy,px,py)
+        intr: NumPy array containing camera intrinsics (fx,fy,cx,cy)
         distortion_params: NumPy array containing lens distortion parameters (p1,p2,k1,k2,k3,k4)
 
     Returns:
@@ -544,12 +544,12 @@ def distort(vec: np.array, intr: np.array, distortion_params:np.array) -> tuple[
     '''
     # Unpack values from inputs
     y,x = vec
-    fx,fy,px,py = intr
+    fx,fy,cx,cy = intr
     p1,p2,k1,k2,k3,k4 = distortion_params
 
     # Normalize image coordinates
-    x = (x-px)/fx
-    y = (y-py)/fy
+    x = (x-cx)/fx
+    y = (y-cy)/fy
 
     # Get intermediate coefficients
     x2 = x * x
@@ -565,8 +565,8 @@ def distort(vec: np.array, intr: np.array, distortion_params:np.array) -> tuple[
     yd = y * r_coeff + ty
 
     # Distorted image coordinates
-    image_x = fx * xd + px
-    image_y = fy * yd + py
+    image_x = fx * xd + cx
+    image_y = fy * yd + cy
     return (image_x,image_y)
 
 
@@ -659,7 +659,7 @@ def generate_inverse_distortion_map(width: int, height: int, intr: np.array, dis
     Args:
         width: Width of the image
         height: Height of the image
-        intr: NumPy array containing camera intrinsics (fx,fy,px,py)
+        intr: NumPy array containing camera intrinsics (fx,fy,cx,cy)
         distortion_params: NumPy array containing lens distortion parameters (p1,p2,k1,k2,k3,k4)
     
     Returns:

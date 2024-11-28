@@ -129,7 +129,7 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
 
 
         # Get camera parameters
-        intr = [cam.fx,cam.fy,cam.px,cam.py]
+        intr = [cam.fx,cam.fy,cam.cx,cam.cy]
         distort = [cam.p1,cam.p2,cam.k1,cam.k2,cam.k3,cam.k4]
 
         # Generate distorion map
@@ -155,8 +155,8 @@ class BAT_OT_generate_distortion_map(bpy.types.Operator):
         mov_clip.tracking.camera.pixel_aspect = max(fx/fy,0.1)
         mov_clip.tracking.camera.focal_length = (fx/scene.render.resolution_x)*scene.bat_properties.camera.sensor_width
         mov_clip.tracking.camera.units = 'MILLIMETERS'
-        mov_clip.tracking.camera.principal[0] = scene.bat_properties.camera.px
-        mov_clip.tracking.camera.principal[1] = scene.bat_properties.camera.py
+        mov_clip.tracking.camera.principal[0] = scene.bat_properties.camera.cx
+        mov_clip.tracking.camera.principal[1] = scene.bat_properties.camera.cy
         mov_clip.tracking.camera.brown_p1 = scene.bat_properties.camera.p1
         mov_clip.tracking.camera.brown_p2 = scene.bat_properties.camera.p2
         mov_clip.tracking.camera.brown_k1 = scene.bat_properties.camera.k1
@@ -290,8 +290,8 @@ class BAT_OT_import_camera_data(bpy.types.Operator):
                             if all((len(e)==3 for e in cam_mtx)) and all((all(isinstance(ie,numbers.Number) for ie in e) for e in cam_mtx)):
                                 scene.bat_properties.camera.fx = cam_mtx[0][0]
                                 scene.bat_properties.camera.fy = cam_mtx[1][1]
-                                scene.bat_properties.camera.px = cam_mtx[0][2]
-                                scene.bat_properties.camera.py = cam_mtx[1][2]
+                                scene.bat_properties.camera.cx = cam_mtx[0][2]
+                                scene.bat_properties.camera.cy = cam_mtx[1][2]
                             else:
                                 self.report({'WARNING'}, '"cam_mtx" must be 3x3 matrix!')
                                 return {'CANCELLED'}

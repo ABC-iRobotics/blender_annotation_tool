@@ -133,33 +133,33 @@ def set_fy(self, value: float) -> None:
     '''
     self['fy'] = value
 
-def get_px(self) -> float:
+def get_cx(self) -> float:
     '''
-    Getter for Camera px
+    Getter for Camera cx
     '''
-    if 'px' not in self:
+    if 'cx' not in self:
         return bpy.context.scene.render.resolution_x/2
-    return self['px']
+    return self['cx']
 
-def set_px(self, value: float) -> None:
+def set_cx(self, value: float) -> None:
     '''
-    Setter for Camera px
+    Setter for Camera cx
     '''
-    self['px'] = value
+    self['cx'] = value
 
-def get_py(self) -> float:
+def get_cy(self) -> float:
     '''
-    Getter for Camera py
+    Getter for Camera cy
     '''
-    if 'py' not in self:
+    if 'cy' not in self:
         return bpy.context.scene.render.resolution_y/2
-    return self['py']
+    return self['cy']
 
-def set_py(self, value: float) -> None:
+def set_cy(self, value: float) -> None:
     '''
-    Setter for Camera py
+    Setter for Camera cy
     '''
-    self['py'] = value
+    self['cy'] = value
 
 # -------------------------------
 # Properties for describing a single class
@@ -205,17 +205,17 @@ class BAT_Camera(bpy.types.PropertyGroup):
         get = get_fy,
         set = set_fy,
     )
-    px: bpy.props.FloatProperty(
-        name="px",
+    cx: bpy.props.FloatProperty(
+        name="cx",
         description="Optical Center X (in pixel units)",
-        get = get_px,
-        set = set_px,
+        get = get_cx,
+        set = set_cx,
     )
-    py: bpy.props.FloatProperty(
-        name="py",
+    cy: bpy.props.FloatProperty(
+        name="cy",
         description="Optical Center Y (in pixel units)",
-        get = get_py,
-        set = set_py,
+        get = get_cy,
+        set = set_cy,
     )
 
     # Lens distortion
