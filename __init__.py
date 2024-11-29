@@ -5,13 +5,13 @@ bl_info = {
     "name": "BAT (Blender Annotation Tool)",
     "description": "3D scene annotation for scene and instance segmentation",
     "author": "Artur Istvan Karoly",
-    "blender": (3, 10, 0),
+    "blender": (3, 1, 0),
     "version": (1, 0, 0),
     "category": "Render"
 }
  
 # List of modules making up the addon
-module_names = ("properties", "operators", "user_interface")
+module_names = ("properties", "operators", "user_interface", "remote_control")
 modules = []
 
 for mod in module_names:

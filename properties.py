@@ -1,18 +1,21 @@
 import bpy
 from bpy.types import Context
 
-# -------------------------------
-# Callback functions
+
+# ==============================================================================
+# SECTION: Callbacks
+# ==============================================================================
+# Description: Callback functions to handle value changes of properties
 
 def populate_classes(self, context: Context) -> list[tuple[str,str,str]]:
     '''
     Set items for "Current Class Enum" given the list of classes
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
 
-    Returns:
-        enum_items : An item of the Current Class Enum
+    Returns
+        A list of items for the Current Class Enum
     '''
     
     enum_items = [] 
@@ -29,8 +32,8 @@ def update_current_class_params(self, context: Context) -> None:
     '''
     Update values of current class params when the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -45,8 +48,8 @@ def update_classification_class_color(self, context: Context) -> None:
     '''
     Update color of class in the list of classes if the color for the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -59,8 +62,8 @@ def update_classification_class_objects(self, context: Context) -> None:
     '''
     Update associated collection of class in the list of classes if the associated collection for the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -73,8 +76,8 @@ def update_classification_class_is_instances(self, context: Context) -> None:
     '''
     Update instance segmentation setup of class in the list of classes if the instance segmentation setup for the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -83,8 +86,177 @@ def update_classification_class_is_instances(self, context: Context) -> None:
     context.scene.bat_properties.classification_classes[index].is_instances = context.scene.bat_properties.current_class_is_instances
 
 
-# -------------------------------
-# Properties for describing a single class
+def update_camera_calibration_file(self, context: Context) -> None:
+    '''
+    Update camera intrinsics and lens distortion parameters
+    '''
+    bpy.ops.bat.import_camera_data()
+    
+
+def get_sensor_width(self) -> float:
+    '''
+    Getter for Camera sensor_width
+    '''
+    if 'sensor_width' not in self:
+        return bpy.data.cameras[bpy.context.scene.camera.data.name].sensor_width
+    return self['sensor_width']
+
+def set_sensor_width(self, value: float) -> None:
+    '''
+    Setter for Camera sensor_width
+    '''
+    self['sensor_width'] = value
+
+def get_fx(self) -> float:
+    '''
+    Getter for Camera fx
+    '''
+    if 'fx' not in self:
+        return (24/36)*bpy.context.scene.render.resolution_x  # Default focal length (mm) / sensor width (mm) * image width (pixel)
+    return self['fx']
+
+def set_fx(self, value: float) -> None:
+    '''
+    Setter for Camera fx
+    '''
+    self['fx'] = value
+
+
+def get_fy(self) -> float:
+    '''
+    Getter for Camera fy
+    '''
+    if 'fy' not in self:
+        return (24/36)*bpy.context.scene.render.resolution_x  # Same as fx (pixel aspect = 1)
+    return self['fy']
+
+def set_fy(self, value: float) -> None:
+    '''
+    Setter for Camera fy
+    '''
+    self['fy'] = value
+
+def get_cx(self) -> float:
+    '''
+    Getter for Camera cx
+    '''
+    if 'cx' not in self:
+        return bpy.context.scene.render.resolution_x/2
+    return self['cx']
+
+def set_cx(self, value: float) -> None:
+    '''
+    Setter for Camera cx
+    '''
+    self['cx'] = value
+
+def get_cy(self) -> float:
+    '''
+    Getter for Camera cy
+    '''
+    if 'cy' not in self:
+        return bpy.context.scene.render.resolution_y/2
+    return self['cy']
+
+def set_cy(self, value: float) -> None:
+    '''
+    Setter for Camera cy
+    '''
+    self['cy'] = value
+
+
+
+# ==============================================================================
+# SECTION: Camera Properties
+# ==============================================================================
+# Description: Properties for the BAT Camera
+
+class BAT_Camera(bpy.types.PropertyGroup):
+    '''
+    Property group describing a camera
+    '''
+
+    calibration_file: bpy.props.StringProperty(
+        name = 'calibration_file',
+        description = 'Import camera calibration data',
+        subtype = 'FILE_PATH',
+        update = update_camera_calibration_file,
+    )
+
+
+    sensor_width: bpy.props.FloatProperty(
+        name="sensor_width",
+        description="Width of the CCD sensor in millimeters",
+        min = 0,
+        soft_min = 0,
+        max = 500,
+        soft_max = 500,
+        get = get_sensor_width,
+        set = set_sensor_width,
+    )
+
+    # Intrinsics
+    fx: bpy.props.FloatProperty(
+        name="fx",
+        description="Focal length X (in pixel units)",
+        min = 0,
+        soft_min = 0,
+        get = get_fx,
+        set = set_fx,
+    )
+    fy: bpy.props.FloatProperty(
+        name="fy",
+        description="Focal length Y (in pixel units)",
+        min = 0,
+        soft_min = 0,
+        get = get_fy,
+        set = set_fy,
+    )
+    cx: bpy.props.FloatProperty(
+        name="cx",
+        description="Optical Center X (in pixel units)",
+        get = get_cx,
+        set = set_cx,
+    )
+    cy: bpy.props.FloatProperty(
+        name="cy",
+        description="Optical Center Y (in pixel units)",
+        get = get_cy,
+        set = set_cy,
+    )
+
+    # Lens distortion
+    p1: bpy.props.FloatProperty(
+        name="p1",
+        description="Lens distortion p1 parameter",
+    )
+    p2: bpy.props.FloatProperty(
+        name="p2",
+        description="Lens distortion p2 parameter",
+    )
+    k1: bpy.props.FloatProperty(
+        name="k1",
+        description="Lens distortion k1 parameter",
+    )
+    k2: bpy.props.FloatProperty(
+        name="k2",
+        description="Lens distortion k2 parameter",
+    )
+    k3: bpy.props.FloatProperty(
+        name="k3",
+        description="Lens distortion k3 parameter",
+    )
+    k4: bpy.props.FloatProperty(
+        name="k4",
+        description="Lens distortion k4 parameter",
+    )
+
+
+
+# ==============================================================================
+# SECTION: Class Properties
+# ==============================================================================
+# Description: Properties for a single class
 
 class BAT_ClassificationClass(bpy.types.PropertyGroup):
     '''
@@ -113,8 +285,11 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
     )
 
 
-# -------------------------------
-# Properties for visualisation (currently selected class)
+
+# ==============================================================================
+# SECTION: Visualization Properties
+# ==============================================================================
+# Description: Properties for visualization/user interaction (current/active class)
 
 class BAT_Properties(bpy.types.PropertyGroup):
     '''
@@ -166,24 +341,17 @@ class BAT_Properties(bpy.types.PropertyGroup):
         default=False
     )
 
-    # Output properties
-    save_annotation: bpy.props.BoolProperty(
-        name='Save annotations',
-        description="Save the annotations whenever a render is made",
-        default=False
-    )
-
-    export_class_info: bpy.props.BoolProperty(
-        name='Export class info',
-        description="Export class name and ID association to JSON",
-        default=False
-    )
+    # Camera properties
+    camera: bpy.props.PointerProperty(type=BAT_Camera)
 
 
-# -------------------------------
-# Register/Unregister
 
-classes = [BAT_ClassificationClass, BAT_Properties]
+# ==============================================================================
+# SECTION: Register/Unregister
+# ==============================================================================
+# Description: Make defined classes available in Blender
+
+classes = [BAT_Camera, BAT_ClassificationClass, BAT_Properties]
 
 def register() -> None:
     '''

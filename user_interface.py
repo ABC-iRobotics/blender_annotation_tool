@@ -1,8 +1,13 @@
 import bpy
-from . import utils
 from bpy.types import Context
+from .bat_utils import constants
 
-# Main panel for user interaction
+
+# ==============================================================================
+# SECTION: BAT Class setup UI
+# ==============================================================================
+# Description: User interface to setup BAT classes and annotation
+
 class BAT_PT_main_panel(bpy.types.Panel):
     """BAT Panel"""
     bl_idname = 'VIEW_3D_PT_BAT_Panel'
@@ -15,8 +20,8 @@ class BAT_PT_main_panel(bpy.types.Panel):
         '''
         Draw BAT panel
 
-        Args:
-            context : Current context
+        Args
+            context: Current context
         '''
 
         layout = self.layout
@@ -35,50 +40,124 @@ class BAT_PT_main_panel(bpy.types.Panel):
         # Class properties rows
         box.label(text='Properties')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'current_class_color', text='Mask color')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop_search(context.scene.bat_properties, "current_class_objects", bpy.data, "collections", text='Objects')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'current_class_is_instances', text='Instance segmentation')
 
         # -------------------------------
         # Data passes
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'depth_map_generation', text='Depth map')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'surface_normal_generation', text='Surface normal')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'optical_flow_generation', text='Optical flow')
 
         layout.row().separator()
 
         # -------------------------------
-        # Output properties
-        layout.label(text='Output properties')
-        row = layout.row()
-        row.prop(context.scene.bat_properties, 'save_annotation', text='Save annotations')
-        row = layout.row()
-        row.prop(context.scene.bat_properties, 'export_class_info', text='Export class info')
         row = layout.row()
         row.operator('render.bat_render_annotation', text='Render annotation', icon='RENDER_STILL')
 
 
-# -------------------------------
-# Register/Unregister
 
-classes = [BAT_PT_main_panel]
+# ==============================================================================
+# SECTION: BAT Camera setup UI
+# ==============================================================================
+# Description: User interface to setup realistic camera for BAT
+
+class BAT_PT_camera_panel(bpy.types.Panel):
+    """BAT Camera"""
+    bl_idname = 'VIEW_3D_PT_BAT_Camera'
+    bl_label = 'BAT Camera'
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = 'BAT'
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context: Context) -> None:
+        '''
+        Draw BAT Camera panel
+
+        Args
+            context: Current context
+        '''
+
+        layout = self.layout
+        row = layout.row()
+        row.prop(context.scene.bat_properties.camera, 'calibration_file', text='Import From File')
+        row = layout.row()
+        row.prop(context.scene.bat_properties.camera, 'sensor_width', text='Sensor Width')
+
+        # -------------------------------
+        # Intrinsic parameters
+        box = layout.box()
+        box.label(text='Intrinsic parameters')
+        row = box.row(align=True)
+        row.label(text='Focal Length X')
+        row.prop(context.scene.bat_properties.camera, 'fx', text='')
+        row = box.row(align=True)
+        row.label(text='Focal Length Y')
+        row.prop(context.scene.bat_properties.camera, 'fy', text='')
+        row = box.row(align=True)
+        row.label(text='Optical Center X')
+        row.prop(context.scene.bat_properties.camera, 'cx', text='')
+        row = box.row(align=True)
+        row.label(text='Optical Center Y')
+        row.prop(context.scene.bat_properties.camera, 'cy', text='')
+
+        # -------------------------------
+        # Lens distortion parameters
+        box = layout.box()
+        box.label(text='Lens Distortion')
+        row = box.row(align=True)
+        row.label(text='p1')
+        row.prop(context.scene.bat_properties.camera, 'p1', text='')
+        row = box.row(align=True)
+        row.label(text='p2')
+        row.prop(context.scene.bat_properties.camera, 'p2', text='')
+        box.row().separator()
+        row = box.row(align=True)
+        row.label(text='k1')
+        row.prop(context.scene.bat_properties.camera, 'k1', text='')
+        row = box.row(align=True)
+        row.label(text='k2')
+        row.prop(context.scene.bat_properties.camera, 'k2', text='')
+        row = box.row(align=True)
+        row.label(text='k3')
+        row.prop(context.scene.bat_properties.camera, 'k3', text='')
+        row = box.row(align=True)
+        row.label(text='k4')
+        row.prop(context.scene.bat_properties.camera, 'k4', text='')
+
+        # -------------------------------
+        # Create/Update distortion map
+        layout.row().separator()
+        row = layout.row()
+        row.operator('bat.generate_distortion_map', text='Create/Update Distortion Map', icon='IMAGE_DATA')
+
+
+
+# ==============================================================================
+# SECTION: Register/Unregister
+# ==============================================================================
+# Description: Make defined classes available in Blender
+
+classes = [BAT_PT_main_panel, BAT_PT_camera_panel]
 
 def register() -> None:
     '''
