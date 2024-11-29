@@ -1,8 +1,13 @@
 import bpy
-from . import utils
 from bpy.types import Context
+from .bat_utils import constants
 
-# Main panel for user interaction
+
+# ==============================================================================
+# SECTION: BAT Class setup UI
+# ==============================================================================
+# Description: User interface to setup BAT classes and annotation
+
 class BAT_PT_main_panel(bpy.types.Panel):
     """BAT Panel"""
     bl_idname = 'VIEW_3D_PT_BAT_Panel'
@@ -15,8 +20,8 @@ class BAT_PT_main_panel(bpy.types.Panel):
         '''
         Draw BAT panel
 
-        Args:
-            context : Current context
+        Args
+            context: Current context
         '''
 
         layout = self.layout
@@ -35,30 +40,30 @@ class BAT_PT_main_panel(bpy.types.Panel):
         # Class properties rows
         box.label(text='Properties')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'current_class_color', text='Mask color')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop_search(context.scene.bat_properties, "current_class_objects", bpy.data, "collections", text='Objects')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'current_class_is_instances', text='Instance segmentation')
 
         # -------------------------------
         # Data passes
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'depth_map_generation', text='Depth map')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'surface_normal_generation', text='Surface normal')
         row = box.row(align=True)
-        if context.scene.bat_properties.current_class == utils.DEFAULT_CLASS_NAME:
+        if context.scene.bat_properties.current_class == constants.DEFAULT_CLASS_NAME:
             row.enabled = False
         row.prop(context.scene.bat_properties, 'optical_flow_generation', text='Optical flow')
 
@@ -70,7 +75,11 @@ class BAT_PT_main_panel(bpy.types.Panel):
 
 
 
-# Sub-panel for camera calibration in and output
+# ==============================================================================
+# SECTION: BAT Camera setup UI
+# ==============================================================================
+# Description: User interface to setup realistic camera for BAT
+
 class BAT_PT_camera_panel(bpy.types.Panel):
     """BAT Camera"""
     bl_idname = 'VIEW_3D_PT_BAT_Camera'
@@ -84,8 +93,8 @@ class BAT_PT_camera_panel(bpy.types.Panel):
         '''
         Draw BAT Camera panel
 
-        Args:
-            context : Current context
+        Args
+            context: Current context
         '''
 
         layout = self.layout
@@ -142,8 +151,11 @@ class BAT_PT_camera_panel(bpy.types.Panel):
         row.operator('bat.generate_distortion_map', text='Create/Update Distortion Map', icon='IMAGE_DATA')
 
 
-# -------------------------------
-# Register/Unregister
+
+# ==============================================================================
+# SECTION: Register/Unregister
+# ==============================================================================
+# Description: Make defined classes available in Blender
 
 classes = [BAT_PT_main_panel, BAT_PT_camera_panel]
 

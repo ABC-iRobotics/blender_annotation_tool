@@ -13,11 +13,13 @@ from bpy.types import Scene, AddonPreferences, Context
 from bpy.props import BoolProperty, IntProperty
 from typing import Any
 
-from . import utils
+from .bat_utils import common, annotation, camera
 
-# -------------------------------
-# Timer for executing non thread-safe blender API calls in the main thread
 
+# ==============================================================================
+# SECTION: Timer
+# ==============================================================================
+# Description: Timer for executing non thread-safe blender API calls in the main thread
 
 TIMER_FREQUENCY = 1.0  # Re-run timer every second
 REQUEST_TIMEOUT = 10  # Timeout seconds for handling GET requests
@@ -28,7 +30,8 @@ result_queue = queue.Queue()  # Queue to hold function results
 
 
 def run_in_main_thread(function: Callable[[],Any]) -> None:
-    '''Function to enqueue tasks for main thread execution
+    '''
+    Function to enqueue tasks for main thread execution
 
     Args
         function: Function to be executed
@@ -37,7 +40,8 @@ def run_in_main_thread(function: Callable[[],Any]) -> None:
 
 
 def execute_queued_functions() -> float:
-    '''Timer function to execute queued tasks in Blender's main thread
+    '''
+    Timer function to execute queued tasks in Blender's main thread
 
     Returns
         The number of seconds after which the function will be executed again
@@ -53,7 +57,8 @@ def execute_queued_functions() -> float:
 
 
 def register_timer_function() -> None:
-    '''Register the timer function in Blender
+    '''
+    Register the timer function in Blender
     '''
     if not bpy.app.timers.is_registered(execute_queued_functions):
         bpy.app.timers.register(execute_queued_functions)
@@ -61,22 +66,26 @@ def register_timer_function() -> None:
 
 
 def unregister_timer_function() -> None:
-    '''Unregister the timer function in Blender
+    '''
+    Unregister the timer function in Blender
     '''
     if bpy.app.timers.is_registered(execute_queued_functions):
         bpy.app.timers.unregister(execute_queued_functions)
         logging.info('Unregistered queue executor')
 
 
-# -------------------------------
-# Preferences
+
+# ==============================================================================
+# SECTION: Preferences
+# ==============================================================================
+# Description: Addon preferences
 
 def update_enable_remote_interface(self, context: Context) -> None:
     '''
     Enable/Disable HTTP server
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     if context.preferences.addons[__package__].preferences.http_enable:
         register_timer_function()
@@ -90,14 +99,15 @@ def update_http_server_port(self, context: Context) -> None:
     '''
     Restart the remote HTTP server with new port
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     BATRemoteControl.restart_server()
 
 
 class BATRemoteControlPreferences(AddonPreferences):
-    ''' Addon Preferences for the HTTP Remote Interface
+    '''
+    Addon Preferences for the HTTP Remote Interface
     '''
 
     bl_idname = __package__
@@ -122,8 +132,8 @@ class BATRemoteControlPreferences(AddonPreferences):
         '''
         Draw BAT HTTP Remote Interface preferences
 
-        Args:
-            context : Current context
+        Args
+            context: Current context
         '''
         layout = self.layout
         layout.label(text="BAT HTTP Remote Interface")
@@ -131,11 +141,15 @@ class BATRemoteControlPreferences(AddonPreferences):
         layout.prop(self, "http_port")
 
 
-# -------------------------------
-# Helper functions
+
+# ==============================================================================
+# SECTION: Helper functions
+# ==============================================================================
+# Description: Getters for putting information into the response queue
 
 def get_object_pose(object_name: str|None) -> None:
-    '''Get pose of a given object
+    '''
+    Get pose of a given object
 
     Args
         object_name: Name of the object
@@ -149,22 +163,28 @@ def get_object_pose(object_name: str|None) -> None:
 
 
 def get_frame_num() -> None:
-    '''Get frame number
+    '''
+    Get frame number
     '''
     result_queue.put(bpy.context.scene.frame_current)
 
 
-# -------------------------------
-# HTTP Interface
+
+# ==============================================================================
+# SECTION: HTTP Interface
+# ==============================================================================
+# Description: Remote HTTP Interface for BAT
 
 class BATRequestHandler(http.server.BaseHTTPRequestHandler):
-    '''HTTP Request Handler for BAT
+    '''
+    HTTP Request Handler for BAT
 
     Can be used to get/set pose of objects, camera parameters and current frame
     '''
     
     def _send_response(self, message: dict[str, str]) -> None:
-        '''Send response json
+        '''
+        Send response json
         '''
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
@@ -176,7 +196,8 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
     
 
     def do_POST(self) -> None:
-        '''Handle POST requests
+        '''
+        Handle POST requests
         '''
         # Parse request data
         content_length = int(self.headers['Content-Length'])
@@ -195,7 +216,7 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
         # Handle camera parameters
         if 'camera' in data:
             cam_data = data['camera']
-            run_in_main_thread(lambda: utils.setup_camera(cam_data))
+            run_in_main_thread(lambda: camera.setup_camera(cam_data))
             run_in_main_thread(bpy.ops.bat.generate_distortion_map)
             status = 'success'
             message += 'Updated camera parameters, '
@@ -205,7 +226,7 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
             obj_data = data['pose']
             obj_name = obj_data.get('name')
             if obj_name:
-                run_in_main_thread(lambda: utils.set_object_pose(obj_name, obj_data.get('location'), obj_data.get('rotation')))
+                run_in_main_thread(lambda: common.set_object_pose(obj_name, obj_data.get('location'), obj_data.get('rotation')))
                 status = 'success'
                 message += f'Updated pose of {obj_name}, '
         
@@ -220,16 +241,16 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
         if 'render' in data:
             render_data = data['render']
 
-            render = render_data.get('render', False)
-            annotation = render_data.get('annotation', False)
+            do_render = render_data.get('render', False)
+            do_annotation = render_data.get('annotation', False)
             
-            if render:
-                run_in_main_thread(lambda: utils.render_scene(None, True)) 
+            if do_render:
+                run_in_main_thread(lambda: common.render_scene(None, True))
                 status = 'success'
                 message += f'Rendered frame, '
 
-            if annotation:
-                run_in_main_thread(utils.bat_render_annotation)
+            if do_annotation:
+                run_in_main_thread(annotation.bat_render_annotation)
                 status = 'success'
                 message += f'Saved rendered annotations, '
             
@@ -241,7 +262,8 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
 
 
     def do_GET(self) -> None:
-        '''Handle GET requests
+        '''
+        Handle GET requests
         '''
         # Parse query
         query = self.path.split('?')[0].strip('/')
@@ -290,7 +312,8 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
     
 
 class BATRemoteControl:
-    '''Class for BAT HTTP Interface
+    '''
+    Class for BAT HTTP Interface
     '''
     server = None
 
@@ -312,7 +335,8 @@ class BATRemoteControl:
 
     @classmethod
     def stop_server(cls):
-        '''Stop the HTTP server
+        '''
+        Stop the HTTP server
         '''
         if cls.server:
             cls.server.shutdown()
@@ -323,21 +347,25 @@ class BATRemoteControl:
 
     @classmethod
     def restart_server(cls):
-        '''Restart the HTTP server
+        '''
+        Restart the HTTP server
         '''
         cls.stop_server()
         cls.start_server()
 
 
-# -------------------------------
-# Handlers
+
+# ==============================================================================
+# SECTION: Handlers
+# ==============================================================================
+# Description: Functions to handle events
 
 def onRegister(scene: Scene) -> None:
     '''
     Setup HTTP server and timer when registering addon
 
-    Args:
-        scene : Current scene
+    Args
+        scene: Current scene
     '''
     register_timer_function()
     BATRemoteControl.start_server()
@@ -349,7 +377,7 @@ def onFileLoaded(scene: Scene) -> None:
     Setup default class upon loading a new Blender file
 
     Args:
-        scene : Current scene 
+        scene: Current scene 
     '''
     register_timer_function()
     BATRemoteControl.start_server()
@@ -364,8 +392,11 @@ def onBlenderClose() -> None:
     unregister_timer_function()
 
 
-# -------------------------------
-# Register/Unregister
+
+# ==============================================================================
+# SECTION: Register/Unregister
+# ==============================================================================
+# Description: Make defined classes/functions available in Blender
 
 classes = [
     BATRemoteControlPreferences

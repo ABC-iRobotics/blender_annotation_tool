@@ -1,18 +1,21 @@
 import bpy
 from bpy.types import Context
 
-# -------------------------------
-# Callback functions
+
+# ==============================================================================
+# SECTION: Callbacks
+# ==============================================================================
+# Description: Callback functions to handle value changes of properties
 
 def populate_classes(self, context: Context) -> list[tuple[str,str,str]]:
     '''
     Set items for "Current Class Enum" given the list of classes
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
 
-    Returns:
-        enum_items : An item of the Current Class Enum
+    Returns
+        A list of items for the Current Class Enum
     '''
     
     enum_items = [] 
@@ -29,8 +32,8 @@ def update_current_class_params(self, context: Context) -> None:
     '''
     Update values of current class params when the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -45,8 +48,8 @@ def update_classification_class_color(self, context: Context) -> None:
     '''
     Update color of class in the list of classes if the color for the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -59,8 +62,8 @@ def update_classification_class_objects(self, context: Context) -> None:
     '''
     Update associated collection of class in the list of classes if the associated collection for the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -73,8 +76,8 @@ def update_classification_class_is_instances(self, context: Context) -> None:
     '''
     Update instance segmentation setup of class in the list of classes if the instance segmentation setup for the current class is changed
 
-    Args:
-        context : Current context
+    Args
+        context: Current context
     '''
     # Get the index of current class
     index = context.scene.bat_properties.classification_classes.find(context.scene.bat_properties.current_class)
@@ -161,8 +164,12 @@ def set_cy(self, value: float) -> None:
     '''
     self['cy'] = value
 
-# -------------------------------
-# Properties for describing a single class
+
+
+# ==============================================================================
+# SECTION: Camera Properties
+# ==============================================================================
+# Description: Properties for the BAT Camera
 
 class BAT_Camera(bpy.types.PropertyGroup):
     '''
@@ -245,8 +252,11 @@ class BAT_Camera(bpy.types.PropertyGroup):
     )
 
 
-# -------------------------------
-# Properties for describing a single class
+
+# ==============================================================================
+# SECTION: Class Properties
+# ==============================================================================
+# Description: Properties for a single class
 
 class BAT_ClassificationClass(bpy.types.PropertyGroup):
     '''
@@ -275,8 +285,11 @@ class BAT_ClassificationClass(bpy.types.PropertyGroup):
     )
 
 
-# -------------------------------
-# Properties for visualisation (currently selected class)
+
+# ==============================================================================
+# SECTION: Visualization Properties
+# ==============================================================================
+# Description: Properties for visualization/user interaction (current/active class)
 
 class BAT_Properties(bpy.types.PropertyGroup):
     '''
@@ -332,8 +345,11 @@ class BAT_Properties(bpy.types.PropertyGroup):
     camera: bpy.props.PointerProperty(type=BAT_Camera)
 
 
-# -------------------------------
-# Register/Unregister
+
+# ==============================================================================
+# SECTION: Register/Unregister
+# ==============================================================================
+# Description: Make defined classes available in Blender
 
 classes = [BAT_Camera, BAT_ClassificationClass, BAT_Properties]
 
