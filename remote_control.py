@@ -4,10 +4,12 @@ import logging
 import http.server
 from typing import Callable
 import bpy
+import bpy_extras
 import threading
 import queue
 import socketserver
 import atexit
+import numpy as np
 from bpy.app.handlers import persistent
 from bpy.types import Scene, AddonPreferences, Context
 from bpy.props import BoolProperty, IntProperty
@@ -169,6 +171,70 @@ def get_frame_num() -> None:
     result_queue.put(bpy.context.scene.frame_current)
 
 
+def get_object_vertices_img_coords(object_name: str|None, vertex_indices: str|None) -> None:
+    '''
+    Get the 2D image coordinates of the chosen vertices of a given object on the rendered image
+
+    Args
+        object_name: Name of the object
+        vertex_indices: Indexes of the chosen vertices, separated by "," to choose all vertices use "all"
+    '''
+    # Init vars
+    result = {}
+    vertex_ids = []
+    all_vertices = False    
+    scene = bpy.context.scene
+    cam = bpy.context.scene.camera
+    obj = bpy.data.objects.get(object_name)
+
+    # Get require vertex indices
+    if vertex_indices == 'all':
+        all_vertices = True
+    else:
+        try:
+            vertex_ids = [int(x) for x in vertex_indices.split(',')]
+        except (ValueError, AttributeError):
+            vertex_ids = []
+
+    # fill result if object is found and there are requested vertices
+    if obj and (vertex_ids or all_vertices):
+        # Get camera/image params
+        bat_cam = scene.bat_properties.camera
+        intr = np.array([bat_cam.fx, bat_cam.fy, bat_cam.cx, bat_cam.cy])
+        dist = np.array([bat_cam.p1,bat_cam.p2,bat_cam.k1,bat_cam.k2,bat_cam.k3,bat_cam.k4])
+        render_scale = scene.render.resolution_percentage / 100
+        render_size = (int(scene.render.resolution_x * render_scale), int(scene.render.resolution_y * render_scale))
+        
+        # Get vetrices
+        if all_vertices:
+            vertices = list(obj.data.vertices)
+        else:
+            try:
+                vertices = [obj.data.vertices[i] for i in vertex_ids]
+            except IndexError:
+                vertices = []
+    
+        if vertices:
+            # Calculate results
+            coords_2d = []
+            distance_from_cam = []
+            coords_3d = []
+            for v in vertices:
+                coordinates = obj.matrix_world @ v.co
+                coords_3d.append(list(coordinates))
+                co_2d = bpy_extras.object_utils.world_to_camera_view(scene, cam, coordinates)
+                distance_from_cam.append(list(co_2d))
+                coords_2d.append([round(co_2d.y * render_size[1]),round(co_2d.x * render_size[0])])
+
+            image_x, image_y = camera.distort(np.transpose(np.array(coords_2d)), intr, dist)
+            coords_2d = np.transpose(np.array([image_x,render_size[1] - image_y])).tolist()
+            
+            # Fill results
+            result['2D_Coordinates'] = coords_2d
+            result['distance_from_cam'] = distance_from_cam
+            result['3D_Coordinates'] = coords_3d
+
+    result_queue.put(result)
 
 # ==============================================================================
 # SECTION: HTTP Interface
@@ -292,6 +358,47 @@ class BATRequestHandler(http.server.BaseHTTPRequestHandler):
                     }
                 else:
                     response = {"status": "failed", "message": f"Object '{obj_name}' not found."}
+            else:
+                response = {"status": "failed", "message": "Object name not provided."}
+                
+        # Handle request for object pose
+        if query == "vertices":
+            obj_name = None
+            vertex_indices = None
+            params = self.path.split('?')
+            try:
+                params.pop(0)
+            except IndexError:
+                params = []
+            
+            for p in params:
+                if 'name=' in p:
+                    obj_name = p.replace('name=','')
+                elif 'vertex_indices=' in p:
+                    vertex_indices = p.replace('vertex_indices=', '')
+            if obj_name:
+                if vertex_indices:
+                    run_in_main_thread(lambda: get_object_vertices_img_coords(obj_name, vertex_indices))
+                    start_time = time.time()
+                    while result_queue.empty():
+                        if time.time() - start_time > REQUEST_TIMEOUT:
+                            self.send_error(500, "Timeout waiting for Blender response")
+                            return
+                
+                    # Retrieve the response from the result queue
+                    response_content = result_queue.get()
+                    if response_content:
+                        response = {
+                            "status": "success",
+                            "object": obj_name,
+                            "2D_Coordinates": response_content['2D_Coordinates'],
+                            "distance_from_cam": response_content['distance_from_cam'],
+                            "3D_Coordinates": response_content['3D_Coordinates']
+                        }
+                    else:
+                        response = {"status": "failed", "message": f"Object '{obj_name}' not found or incorrect indices provided."}
+                else:
+                    response = {"status": "failed", "message": "Vertex indexes not provided."}    
             else:
                 response = {"status": "failed", "message": "Object name not provided."}
 
