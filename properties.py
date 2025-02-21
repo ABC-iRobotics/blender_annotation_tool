@@ -105,6 +105,12 @@ def set_sensor_width(self, value: float) -> None:
     '''
     Setter for Camera sensor_width
     '''
+    scene = bpy.context.scene
+    camera = bpy.data.cameras[bpy.context.scene.camera.data.name]
+    camera.type = 'PERSP'
+    camera.lens_unit = 'MILLIMETERS'
+    camera.lens = (scene.bat_properties.camera.fx/scene.render.resolution_x)*value
+    bpy.data.cameras[bpy.context.scene.camera.data.name].sensor_width = value
     self['sensor_width'] = value
 
 def get_fx(self) -> float:
@@ -119,6 +125,11 @@ def set_fx(self, value: float) -> None:
     '''
     Setter for Camera fx
     '''
+    scene = bpy.context.scene
+    camera = bpy.data.cameras[bpy.context.scene.camera.data.name]
+    camera.type = 'PERSP'
+    camera.lens_unit = 'MILLIMETERS'
+    camera.lens = (value/scene.render.resolution_x)*scene.bat_properties.camera.sensor_width
     self['fx'] = value
 
 
