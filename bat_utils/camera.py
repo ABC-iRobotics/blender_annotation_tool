@@ -180,8 +180,22 @@ def generate_inverse_distortion_map(width: int, height: int, intr: np.array, dis
     # Get distorted coordinates
     distorted_xs, distorted_ys = distort(np.reshape(np.moveaxis(coords, [2],[0]), (2,height*width)), intr, distortion_params)
 
+    A = np.reshape(distorted_xs, (height,width))
+    diffs = np.roll(A, -1, axis=1)[:, :-1] - A[:, :-1]
+    mask_x = np.append(diffs > 0, (diffs > 0)[:, -1][:, None], axis=1)
+    mask_x = np.reshape(mask_x, (height*width))
+
+    A = np.reshape(distorted_ys, (height,width))
+    A = A.T
+    diffs = np.roll(A, -1, axis=1)[:, :-1] - A[:, :-1]
+    mask_y = np.append(diffs > 0, (diffs > 0)[:, -1][:, None], axis=1)
+    mask_y = mask_y.T
+    mask_y = np.reshape(mask_y, (height*width))
+
     # Filter distorted an undistorted coordinates (only leave te ones that are inside the image after distortion)
     valid_indices = np.logical_and(np.logical_and(distorted_xs>=0,distorted_xs<width),np.logical_and(distorted_ys>=0,distorted_ys<height))
+    valid_indices = np.logical_and(valid_indices, mask_x)
+    valid_indices = np.logical_and(valid_indices, mask_y)
     distorted_xs = distorted_xs[valid_indices].astype(int)
     distorted_ys = distorted_ys[valid_indices].astype(int)
     coords = np.reshape(coords, (height*width, 2))[valid_indices]
@@ -210,6 +224,11 @@ def setup_bat_distortion(scene: Scene) -> set[str]:
     width = int(scene.render.resolution_x * (scene.render.resolution_percentage/100))
     height = int(scene.render.resolution_y * (scene.render.resolution_percentage/100))
 
+    # Set Blender camera focal length
+    blender_camera = bpy.data.cameras[scene.camera.data.name]
+    blender_camera.type = 'PERSP'
+    blender_camera.lens_unit = 'MILLIMETERS'
+    blender_camera.lens = (cam.fx/scene.render.resolution_x)*cam.sensor_width
 
     # Get camera parameters
     intr = [cam.fx,cam.fy,cam.cx,cam.cy]
@@ -232,7 +251,7 @@ def setup_bat_distortion(scene: Scene) -> set[str]:
     # Create clip image
     clip_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'clip.png')
     clip_img = bpy.data.images.new('BAT_clip', width, height, alpha=False, float_buffer=True, is_data=True)
-    clip_img.pixels = np.zeros((height,width,3)).flatten()
+    clip_img.pixels = np.zeros((height,width,4)).flatten()
     clip_img.filepath_raw = clip_image_path
     clip_img.save()
     bpy.data.images.remove(clip_img, do_unlink=True)
@@ -250,8 +269,8 @@ def setup_bat_distortion(scene: Scene) -> set[str]:
     mov_clip.tracking.camera.pixel_aspect = max(fx/fy,0.1)
     mov_clip.tracking.camera.focal_length = (fx/scene.render.resolution_x)*scene.bat_properties.camera.sensor_width
     mov_clip.tracking.camera.units = 'MILLIMETERS'
-    mov_clip.tracking.camera.principal[0] = scene.bat_properties.camera.cx
-    mov_clip.tracking.camera.principal[1] = scene.bat_properties.camera.cy
+    mov_clip.tracking.camera.principal_point[0] = (scene.bat_properties.camera.cx/(width/2))-1
+    mov_clip.tracking.camera.principal_point[1] = (scene.bat_properties.camera.cy/(height/2))-1
     mov_clip.tracking.camera.brown_p1 = scene.bat_properties.camera.p1
     mov_clip.tracking.camera.brown_p2 = scene.bat_properties.camera.p2
     mov_clip.tracking.camera.brown_k1 = scene.bat_properties.camera.k1
@@ -263,18 +282,22 @@ def setup_bat_distortion(scene: Scene) -> set[str]:
     bat_distort_group = bpy.data.node_groups.get(constants.BAT_DISTORTION_NODE_GROUP_NAME)
     if bat_distort_group is None:
         bat_distort_group = bpy.data.node_groups.new(constants.BAT_DISTORTION_NODE_GROUP_NAME, 'CompositorNodeTree')
+        if not hasattr(bat_distort_group, 'inputs'):
+            # Blender 4.0 +
+            bat_distort_group.interface.new_socket('Image', in_out='INPUT', socket_type='NodeSocketColor')
+        if not hasattr(bat_distort_group, 'outputs'):
+            # Blender 4.0 +
+            bat_distort_group.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
 
         # Create group inputs
         group_inputs = bat_distort_group.nodes.get('NodeGroupInput')
         if group_inputs is None:
             group_inputs = bat_distort_group.nodes.new('NodeGroupInput')
-            bat_distort_group.inputs.new('NodeSocketImage','Image')
 
         # create group outputs
         group_outputs = bat_distort_group.nodes.get('NodeGroupOutput')
         if group_outputs is None:
             group_outputs = bat_distort_group.nodes.new('NodeGroupOutput')
-            bat_distort_group.outputs.new('NodeSocketImage','Image')
 
         movie_distortion_node = bat_distort_group.nodes.new('CompositorNodeMovieDistortion')
         movie_distortion_node.clip = bpy.data.movieclips[constants.BAT_MOVIE_CLIP_NAME]
